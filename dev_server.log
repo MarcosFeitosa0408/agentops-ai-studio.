@@ -1,0 +1,11 @@
+
+> agentops-ai-studio@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.11 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 572ms
+
+ HEAD / 200 in 3.7s (next.js: 3.4s, application-code: 327ms)
+ GET / 200 in 113ms (next.js: 9ms, application-code: 104ms)
