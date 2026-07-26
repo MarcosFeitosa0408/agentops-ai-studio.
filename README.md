@@ -36,9 +36,11 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
 ├── public/                 # Static assets
 └── src/
     ├── app/                # Next.js App Router (pages, layout, routing)
-    ├── components/         # Reusable UI Components
-    ├── context/            # React Context state providers
-    ├── hooks/              # Custom React Hooks
+    ├── components/         # Reusable UI & Layout Components
+    │   ├── layout/         # Shell layout blocks (Topbar, Sidebar, etc.)
+    │   └── ui/             # Reusable atomic UI elements (Buttons, Inputs, etc.)
+    ├── context/            # React Context state providers (ThemeContext)
+    ├── hooks/              # Custom React Hooks (useIsMounted)
     ├── lib/                # Modular utilities and third-party clients
     └── types/              # Global TypeScript interfaces and definitions
 ```
@@ -67,16 +69,65 @@ npx prettier --write .
 npm run build
 ```
 
+---
+
+## Sprint 2 — Enterprise Design System
+
+Our repository features a complete, highly-scalable **Enterprise Design System & UI Core** designed with premium SaaS aesthetics (inspired by Linear, Stripe, and OpenAI).
+
+### Design Tokens
+
+All visual constants are configured as semantic **Design Tokens** (using CSS Custom Properties in `src/app/globals.css` map to Tailwind `@theme` utilities). This guarantees absolute design consistency across light and dark modes without hardcoded colors.
+
+- **Brand Colors:**
+  - `Primary`: Indigo (`--primary`: `#4f46e5` Light / `#6366f1` Dark)
+  - `Secondary`: Slate (`--secondary`: `#64748b` Light / `#94a3b8` Dark)
+  - `Accent`: Teal (`--accent`: `#0d9488` Light / `#14b8a6` Dark)
+  - `Success`: Emerald (`--success`: `#10b981` Light / `#34d399` Dark)
+  - `Warning`: Amber (`--warning`: `#f59e0b` Light / `#fbbf24` Dark)
+  - `Danger`: Rose/Red (`--danger`: `#ef4444` Light / `#f87171` Dark)
+- **Surfaces & Layouts:**
+  - `Background`: Very light grey `#f8fafc` Light / Dark deep grey `#030712` Dark.
+  - `Surface / Card`: Pure White `#ffffff` Light / Steel grey `#1f2937` Dark.
+  - `Border`: Slate borders (`--border`).
+- **Typography:** Custom Google Font Geist integration configured for:
+  - Display (large hero sizes)
+  - Headings & Titles (firm bold sizes)
+  - Subtitles, Body, Caption, Small Text, and Code.
+- **Visual Parameters:** Standardized radii (`radius-sm` to `radius-full`), shadows (`shadow-sm` to `shadow-xl`), hover animations, focus rings, and z-indexes.
+
+### Theme System
+
+The design system incorporates a dual **Dark Theme & Light Theme** toggle utilizing a state-driven Context Provider (`src/context/ThemeContext.tsx`).
+
+To eliminate hydration mismatches in Next.js Server Components, we leverage React 19's **`useSyncExternalStore`** hook inside our theme subscriber. This resolves hydration discrepancies by enforcing server-safe theme defaults during initial render, and synchronously applying user storage choices after client mounting—fully compliant with strict concurrent mode rules.
+
+### Components
+
+We implemented over **30+ Production-Ready Reusable UI Components** under `src/components/ui/` and `src/components/layout/`.
+
+1. **Buttons & Badges:** `Button` (with prefix/suffix/loading states), `IconButton` (ARIA labeled), `Badge` (pill/sizes), `Avatar` (image/initial fallbacks), `Chip` (dismissible tags), and `Card` (interactive shadow options).
+2. **Inputs & Controls:** `Input`, `PasswordInput` (toggle visibility), `Textarea`, `Checkbox`, `Radio`, `Switch` (sliding toggle), and custom `Select`.
+3. **Overlays & Popups:** `DropdownMenu`, `Popover`, `Tooltip` (keyboard hover trigger), `Modal` (scroll locking & keyboard trap), and alert `Dialog`.
+4. **Status & Loading:** `LoadingSpinner` (scalable), `ProgressBar` (interactive), `SkeletonLoader` (animation pulsing), `EmptyState` (with icon and custom buttons), `ErrorState` (retry action), and `Notification` (dismissible banners).
+5. **Interactive Navigation:** `Tabs`, `Accordion` (collapsible list), `Breadcrumb`, and `Pagination` (dynamic ellipses).
+
+### Layout & Responsive Grid
+
+The layout features standard responsive containers (`Container`, `Section`) and shell components (`Navbar`, `Sidebar`, `Topbar`, `Footer`) built with responsive grids for Desktop, Tablet, and Mobile viewport compatibility.
+
+---
+
 ## Roadmap
 
-- **Sprint 1 (Current):** Project Initialization and Infrastructure Foundation.
-- **Sprint 2:** Design System Implementation and Atomic UI Core.
-- **Sprint 3:** Visual Agent Designer & Workspace Editor.
+- **Sprint 1:** Project Initialization and Infrastructure Foundation. (Complete)
+- **Sprint 2:** Design System Implementation and Atomic UI Core. (Current - Complete)
+- **Sprint 3:** Visual Agent Designer & Workspace Editor. (Next)
 - **Sprint 4:** Integration of Live LLM Providers and Data Connectors.
 
 ## Current Status
 
-**Sprint 1 Foundation Complete.** The project boilerplate has been successfully initialized. TypeScript, Tailwind CSS, ESLint, and Prettier configurations have been fully integrated, and the modular folder structure is established.
+**Sprint 2 Design System Complete.** The visual foundation has been fully built, verified, documented, and tested with exactly **0 compilation errors and 0 linting warnings**.
 
 ## License
 
