@@ -139,22 +139,17 @@ export default function Home() {
                     <div className="flex flex-wrap gap-3">
                       <Button
                         variant="primary"
+                        onClick={() => window.location.href = '/dashboard'}
+                        rightIcon={<ExternalLink className="h-4 w-4" />}
+                      >
+                        Abrir Agent Studio Workspace
+                      </Button>
+                      <Button
+                        variant="outline"
                         onClick={() => setActiveTab('Tokens')}
                         rightIcon={<Sliders className="h-4 w-4" />}
                       >
                         Explore Tokens
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          toast(
-                            'Welcome!',
-                            'Welcome to our Design System showroom dashboard.',
-                            'info',
-                          )
-                        }
-                      >
-                        Test Toast
                       </Button>
                     </div>
                   </div>
