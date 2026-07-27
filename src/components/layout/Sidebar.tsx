@@ -72,6 +72,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation lists */}
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
+          {/* New Sprint 3 functional section */}
+          <div className="space-y-1">
+            <p className="text-primary px-3 text-[10px] font-bold tracking-wider uppercase">
+              AgentOps AI Studio
+            </p>
+            <a
+              href="/dashboard"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+            >
+              <LayoutDashboard className="h-4.5 w-4.5 shrink-0 text-primary" />
+              <span className="font-semibold text-text-primary">Dashboard</span>
+            </a>
+            <a
+              href="/agents"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+            >
+              <Cpu className="h-4.5 w-4.5 shrink-0 text-accent" />
+              <span className="font-semibold text-text-primary">Agentes Playground</span>
+            </a>
+          </div>
+
           <div className="space-y-1">
             <p className="text-text-muted px-3 text-[10px] font-semibold tracking-wider uppercase">
               Core Components
