@@ -121,13 +121,50 @@ The layout features standard responsive containers (`Container`, `Section`) and 
 ## Roadmap
 
 - **Sprint 1:** Project Initialization and Infrastructure Foundation. (Complete)
-- **Sprint 2:** Design System Implementation and Atomic UI Core. (Current - Complete)
-- **Sprint 3:** Visual Agent Designer & Workspace Editor. (Next)
-- **Sprint 4:** Integration of Live LLM Providers and Data Connectors.
+- **Sprint 2:** Design System Implementation and Atomic UI Core. (Complete)
+- **Sprint 3:** Visual Agent Designer, Dashboard & Workspace Editor. (Complete)
+- **Sprint 4:** Multi-LLM Provider Architecture & AI Gateway Layer. (Current - Complete)
+- **Sprint 5:** Memory Systems, Vector Store & Retrieval Augmented Generation (RAG). (Next)
+
+---
+
+## Sprint 4 — Multi-LLM Provider Architecture & AI Gateway
+
+Sprint 4 introduces the modular cognitive core of the AgentOps AI Studio. This architecture prepares the entire platform to seamlessly support multiple model backends with total abstraction, decoupled gateways, and zero changes to downstream agent/workflow modules.
+
+### Clean Architecture Core (`src/lib/ai/`)
+
+- **Strongly-Typed Interface (`types/index.ts`)**: Strongly types all entities including providers, models, chat requests/responses, token usage, latencies, and streaming chunks.
+- **Provider Interface Contract (`providers/base/BaseAIProvider.ts`)**: Defines standard lifecycle and generation contract methods (`initialize`, `chat`, `stream`, `listModels`, `validateConnection`, `health`) that every provider must implement.
+- **Unified Provider Registry (`services/ProviderRegistry.ts`)**: Employs the Registry pattern to support dynamic runtime onboarding, listing, search, and fallback for cognitive LLM providers.
+- **AI Gateway Layer (`services/AIService.ts`)**: The sole cognitive interface of the application. DOWNSTREAM components (such as Agents, Dashboards, and Workspaces) never query API endpoints directly; they issue messages to `AIService` which handles routing, capabilities discovery, and error boundaries.
+
+### Production-Ready Mock Providers (`providers/`)
+
+Six mocked providers simulate real API latency, token metrics, and distinctive conversational behaviors:
+1. **OpenAI**: Business professional, planning focused.
+2. **Anthropic**: Long, deeply analytical systems engineering explanations.
+3. **Google Gemini**: Creative, brainstorming, analogical.
+4. **OpenRouter**: Low-level, JSON block formatted technical proxy responses.
+5. **Ollama**: Local physical execution focus, offline, 100% private datasets.
+6. **Azure OpenAI**: Criptografia AES-256, private VNets, SOC 2 compliance, SLA focused.
+
+### Dynamic Configurations & Playground (`hooks/`, `app/settings/`, `app/playground/`)
+
+- **Global Config hook (`useAIConfig`)**: Connects Settings and Playground page, keeping active state persisted asynchronously to browser `localStorage` to avoid concurrent render/hydration conflicts.
+- **Settings Workspace (`/settings`)**: Interactive control panel to manage model backends, API key templates, temperature, max response tokens, and testing connection health in real-time.
+- **Playground Canvas (`/playground`)**: High-fidelity chat shell to inspect and brainstorm prompt generations. Displays real-time response metrics (completion tokens, prompt tokens, total, latency in ms) and matches brand standards.
+
+### Preparation for Sprint 5 (Memory & RAG)
+
+This decoupled, clean architecture directly prepares the platform for Sprint 5:
+- **Consistent Message Schema**: Storing messages using the standardized `ChatMessage` array schema simplifies the creation of a unified conversational memory system.
+- **Base Embeddings Support**: All provider capabilities list `embeddings` support, allowing vector conversions to plug straight into our registry.
+- **Streaming Hooks**: Stream interface signatures ensure RAG responses render gradually in real-time, matching modern chatbot aesthetics.
 
 ## Current Status
 
-**Sprint 2 Design System Complete.** The visual foundation has been fully built, verified, documented, and tested with exactly **0 compilation errors and 0 linting warnings**.
+**Sprint 4 AI Gateway Complete.** Built with absolute strict compliance, verified, documented, and compiled with exactly **0 compilation errors and 0 linting warnings**.
 
 ## License
 

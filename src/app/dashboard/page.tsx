@@ -11,6 +11,8 @@ import {
   Clock,
   ChevronRight,
   TrendingUp,
+  Sparkles,
+  Activity,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -22,15 +24,24 @@ import { Badge } from '@/components/ui/Badge';
 import { WorkspaceLayout } from '@/components/workspace/WorkspaceLayout';
 import { CreateAgentModal } from '@/components/agents/CreateAgentModal';
 import { AgentStatusBadge } from '@/components/agents/AgentStatusBadge';
+import { useAIConfig } from '../../lib/ai/hooks/useAIConfig';
+import { ProviderConfig } from '../../lib/ai/types';
 
 export default function DashboardPage() {
   const { agents, addAgent, toggleAgentStatus } = useAgents();
+  const { configs, activeProviderId } = useAIConfig();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Calculate metrics
   const totalAgents = agents.length;
   const activeAgents = agents.filter((a) => a.status === 'active').length;
   const inactiveAgents = agents.filter((a) => a.status === 'inactive').length;
+
+  // AI metrics
+  const activeConfigsList = Object.values(configs || {}) as ProviderConfig[];
+  const enabledProvidersCount = activeConfigsList.filter((c: ProviderConfig) => c.enabled).length;
+  const defaultProviderConfig = configs?.[activeProviderId];
+  const defaultModelName = defaultProviderConfig?.selectedModelId || 'Não selecionado';
 
   // Recent agents (sorted by last updated, limit to 4)
   const recentAgents = [...agents]
@@ -86,6 +97,56 @@ export default function DashboardPage() {
               Criar Agente
             </Button>
           </div>
+        </div>
+
+        {/* AI Gateway Overview Widget */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-2 border-border bg-card">
+            <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-primary font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity className="h-4 w-4 animate-pulse" />
+                  Status do AI Gateway
+                </span>
+                <h3 className="text-text-primary text-base font-bold">
+                  Provedor Padrão Ativo: <span className="text-primary font-extrabold uppercase">{activeProviderId}</span>
+                </h3>
+                <p className="text-text-secondary text-xs max-w-xl leading-relaxed">
+                  Todas as inferências de agentes cognitivos no estúdio estão sendo roteadas pelo gateway inteligente utilizando o modelo de linguagem <strong className="text-text-primary">{defaultModelName}</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right select-none hidden sm:block">
+                  <div className="text-xs text-text-muted">Provedores Ativos</div>
+                  <div className="text-sm font-bold text-success">{enabledProvidersCount} de 6</div>
+                </div>
+                <Link href="/settings" passHref legacyBehavior>
+                  <Button variant="outline" size="sm">
+                    Configurar AI
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="border-border bg-card p-5 flex flex-col justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] text-accent font-bold uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5" />
+                Playground Direto
+              </span>
+              <p className="text-text-primary text-sm font-bold">Inicie um Teste Rápido</p>
+              <p className="text-text-muted text-xs leading-normal">
+                Experimente o comportamento heurístico dos modelos disponíveis antes de atribuí-los a um agente.
+              </p>
+            </div>
+            <Link href="/playground" passHref legacyBehavior>
+              <Button variant="secondary" size="xs" className="w-full mt-3">
+                Abrir Playground de Chat
+              </Button>
+            </Link>
+          </Card>
         </div>
 
         {/* KPI Stats Grid */}

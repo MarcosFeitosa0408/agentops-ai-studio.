@@ -6,12 +6,12 @@ import {
   Boxes,
   Activity,
   Sliders,
-  Database,
   Cpu,
   Settings,
   HelpCircle,
   X,
   Sparkles,
+  Database,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 
@@ -72,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation lists */}
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
-          {/* New Sprint 3 functional section */}
+          {/* New Sprint 3/4 functional section */}
           <div className="space-y-1">
             <p className="text-primary px-3 text-[10px] font-bold tracking-wider uppercase">
               AgentOps AI Studio
@@ -89,7 +89,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
             >
               <Cpu className="h-4.5 w-4.5 shrink-0 text-accent" />
-              <span className="font-semibold text-text-primary">Agentes Playground</span>
+              <span className="font-semibold text-text-primary">Agentes</span>
+            </a>
+            <a
+              href="/playground"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+            >
+              <Sparkles className="h-4.5 w-4.5 shrink-0 text-amber-500" />
+              <span className="font-semibold text-text-primary">Playground</span>
+            </a>
+            <a
+              href="/settings"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+            >
+              <Settings className="h-4.5 w-4.5 shrink-0 text-secondary" />
+              <span className="font-semibold text-text-primary">Settings</span>
             </a>
           </div>
 

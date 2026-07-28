@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { ToastProvider } from '@/components/ui/Toast';
 import { AgentProvider } from '@/context/AgentContext';
+import { AIConfigProvider } from '../lib/ai/hooks/useAIConfig';
 import './globals.css';
 
 const geistSans = Geist({
@@ -35,7 +36,9 @@ export default function RootLayout({
       <body className="bg-background text-foreground flex min-h-full flex-col">
         <ThemeProvider>
           <ToastProvider>
-            <AgentProvider>{children}</AgentProvider>
+            <AIConfigProvider>
+              <AgentProvider>{children}</AgentProvider>
+            </AIConfigProvider>
           </ToastProvider>
         </ThemeProvider>
       </body>
