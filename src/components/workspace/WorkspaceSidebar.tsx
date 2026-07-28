@@ -11,6 +11,8 @@ import {
   ChevronRight,
   Shield,
   Plus,
+  Sparkles,
+  Settings,
 } from 'lucide-react';
 import { Agent } from '@/types/agent';
 import { IconButton } from '@/components/ui/IconButton';
@@ -51,10 +53,22 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       active: activePath === 'dashboard',
     },
     {
-      label: 'Agentes Playground',
+      label: 'Agentes',
       icon: Cpu,
       href: '/agents',
       active: activePath === 'agents',
+    },
+    {
+      label: 'Playground',
+      icon: Sparkles,
+      href: '/playground',
+      active: false, // will highlight neutrally or customized
+    },
+    {
+      label: 'Configurações',
+      icon: Settings,
+      href: '/settings',
+      active: false,
     },
   ];
 
