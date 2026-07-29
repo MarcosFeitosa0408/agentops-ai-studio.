@@ -12,6 +12,7 @@ import {
   X,
   Sparkles,
   Database,
+  BookOpen,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 
@@ -97,6 +98,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <Sparkles className="h-4.5 w-4.5 shrink-0 text-amber-500" />
               <span className="font-semibold text-text-primary">Playground</span>
+            </a>
+            <a
+              href="/memory"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+            >
+              <Database className="h-4.5 w-4.5 shrink-0 text-indigo-500" />
+              <span className="font-semibold text-text-primary">Memory</span>
+            </a>
+            <a
+              href="/knowledge"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+            >
+              <BookOpen className="h-4.5 w-4.5 shrink-0 text-emerald-500" />
+              <span className="font-semibold text-text-primary">Knowledge Base</span>
             </a>
             <a
               href="/settings"
