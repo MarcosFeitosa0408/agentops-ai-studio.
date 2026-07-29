@@ -13,6 +13,8 @@ import {
   Plus,
   Sparkles,
   Settings,
+  Database,
+  BookOpen,
 } from 'lucide-react';
 import { Agent } from '@/types/agent';
 import { IconButton } from '@/components/ui/IconButton';
@@ -21,7 +23,7 @@ import { Input } from '@/components/ui/Input';
 interface WorkspaceSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  activePath: 'dashboard' | 'agents';
+  activePath: 'dashboard' | 'agents' | 'memory' | 'knowledge' | 'playground' | 'settings';
   agents?: Agent[];
   selectedAgentId?: string;
   onAgentSelect?: (agent: Agent) => void;
@@ -62,13 +64,25 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       label: 'Playground',
       icon: Sparkles,
       href: '/playground',
-      active: false, // will highlight neutrally or customized
+      active: activePath === 'playground',
+    },
+    {
+      label: 'Memória Cognitiva',
+      icon: Database,
+      href: '/memory',
+      active: activePath === 'memory',
+    },
+    {
+      label: 'Conhecimento RAG',
+      icon: BookOpen,
+      href: '/knowledge',
+      active: activePath === 'knowledge',
     },
     {
       label: 'Configurações',
       icon: Settings,
       href: '/settings',
-      active: false,
+      active: activePath === 'settings',
     },
   ];
 

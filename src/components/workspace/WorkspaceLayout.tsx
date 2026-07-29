@@ -7,7 +7,7 @@ import { Agent } from '@/types/agent';
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode;
-  activePath: 'dashboard' | 'agents';
+  activePath: 'dashboard' | 'agents' | 'memory' | 'knowledge' | 'playground' | 'settings';
   title: string;
   breadcrumbs?: { label: string; href?: string }[];
   agents?: Agent[];

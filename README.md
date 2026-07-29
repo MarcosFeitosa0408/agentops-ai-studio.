@@ -12,14 +12,6 @@ AgentOps AI Studio is an enterprise-grade platform engineered to build, coordina
 
 Our vision is to bridge the gap between advanced large language models (LLMs) and practical business operations. By providing an intuitive, secure, and robust orchestration workspace, AgentOps AI Studio enables business analysts and developers alike to build reliable multi-agent systems that solve actual business challenges without the common fragility of bespoke integration code.
 
-## Planned Features
-
-- **Agent Orchestration Workspace:** Visual interface to configure, parameterize, and manage multi-agent teams.
-- **Data Analysis Engines:** Deep integration with SQL databases, CSV processing, and analytical tools for generating insights on demand.
-- **Workflow Automation:** Action-execution pipelines with conditional logic and support for complex multi-step processes.
-- **Business Intelligence Dashboards:** Comprehensive analytics to track agent usage, task execution logs, and ROI performance.
-- **Enterprise Security & Guardrails:** Secure credential management, audit logging, role-based access control, and model-level guardrails.
-
 ## Technology Stack
 
 - **Framework:** [Next.js](https://nextjs.org/) (App Router, React Server Components)
@@ -38,12 +30,103 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
     ├── app/                # Next.js App Router (pages, layout, routing)
     ├── components/         # Reusable UI & Layout Components
     │   ├── layout/         # Shell layout blocks (Topbar, Sidebar, etc.)
+    │   ├── memory/         # Reusable Memory UI components (cards, timelines, filters)
+    │   ├── rag/            # Reusable RAG UI components (index status, uploaders, previewers)
     │   └── ui/             # Reusable atomic UI elements (Buttons, Inputs, etc.)
-    ├── context/            # React Context state providers (ThemeContext)
+    ├── context/            # React Context state providers (ThemeContext, AgentContext)
     ├── hooks/              # Custom React Hooks (useIsMounted)
     ├── lib/                # Modular utilities and third-party clients
+    │   ├── ai/             # Cognitive AI Gateway layer (providers, services, types)
+    │   ├── memory/         # Local Memory System (types, storage, service, hooks, utils)
+    │   └── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
     └── types/              # Global TypeScript interfaces and definitions
 ```
+
+---
+
+## Sprint 2 — Enterprise Design System
+
+Our repository features a complete, highly-scalable **Enterprise Design System & UI Core** designed with premium SaaS aesthetics (inspired by Linear, Stripe, and OpenAI). All visual constants are configured as semantic **Design Tokens** in `src/app/globals.css` and map to Tailwind.
+
+---
+
+## Sprint 4 — Multi-LLM Provider Architecture & AI Gateway
+
+Sprint 4 introduces the modular cognitive core of the AgentOps AI Studio. This architecture prepares the entire platform to support multiple model backends with total abstraction, decoupled gateways, and zero changes to downstream agent/workspace modules.
+
+---
+
+## Sprint 5 — Memory System & RAG Foundation
+
+Sprint 5 establishes the comprehensive architectural foundation for context retention, persistent user personalization, and Retrieval-Augmented Generation (RAG).
+
+### 1. Memory System Architecture (`src/lib/memory/`)
+
+The Memory system acts as the cognitive context cache for AI Agents. It differentiates between short-term (temporary conversation session data) and long-term (persistent facts) memories:
+
+- **Storage Client (`MemoryStorage.ts`):** Direct hydration-safe interface interacting with browser `localStorage`. Implements standard CRUD operations, statistics compilation, and mock relevance scoring.
+- **Service Layer (`MemoryService.ts`):** The single entry point for memory access. It manages cognitive stores, updates access counts, tracks timestamps, and formats retrieved memories into structured markdown blocks.
+- **Unified Scopes:**
+  - `conversation`: Local to the active chat session (short-term).
+  - `agent`: Local to a specific specialized agent instance.
+  - `project`: Local to the workspace's project scope.
+  - `user`: Local to the active user's persistent preferences.
+  - `global`: Broad, cross-workspace facts.
+
+### 2. Retrieval-Augmented Generation (RAG) Architecture (`src/lib/rag/`)
+
+RAG allows Agents to access offline knowledge bases and corporate documents during prompt execution:
+
+- **Mock Document Parser (`DocumentParser.ts`):** Simulates textual extraction of various file formats (PDF, DOCX, TXT, Markdown, CSV, Excel, JSON). Automatically splits text into paragraphs/chunks with simulated page numbers, line offsets, and word counts.
+- **Chunk Indexer (`ChunkIndexer.ts`):** Maintains the in-memory document metadata index. Implements keyword-matching search and calculates mock relevance scores based on query term frequency.
+- **Retrieval Service (`RetrievalService.ts`):** Executes queries, ranks matched chunks, and formats source citations with document names, page pointers, and matching relevance scores.
+
+### 3. Memory + AI Gateway Integration (`src/lib/ai/services/AIService.ts`)
+
+Before any chat generation or stream is forwarded to the registered providers (OpenAI, Anthropic, Gemini, etc.), `AIService` intercepts the payload, extracts the last user query, and queries the local Memory and RAG Retrieval Services.
+
+The relevant context blocks and source citations are formatted and appended transparently to the prompt payload, ensuring total contextual awareness:
+
+```text
+[User Message Content]
+...
+--- INFORMAÇÕES DE MEMÓRIA RECUPERADAS ---
+[Memória Relacionada #1] (user/core_preference): "O usuário prefere explicações detalhadas de engenharia de sistemas..."
+-----------------------------------------
+
+--- CONTEXTO DE DOCUMENTOS DE CONHECIMENTO RECUPERADOS ---
+[Documento Relacionado #1] "politica_lgpd.pdf" pág. 1 (Relevância: 85%): "O estúdio AgentOps AI Studio utiliza criptografia simétrica local..."
+----------------------------------------------------
+```
+
+---
+
+## Future Integration Roadmap
+
+Downstream modules do not call external databases or embedding endpoints. When we transition from local mocks to cloud providers in future Sprints, the following layers will be integrated:
+
+```text
++-----------------------+      +--------------------------+
+|      AIService        | ---> |     RetrievalService     |
++-----------------------+      +--------------------------+
+            |                               |
+            v                               v
++-----------------------+      +--------------------------+
+|   Embedding Layer     |      |      Vector Database     |
+|   (OpenAI / Gemini)   |      |  (Chroma / pgvector/ etc)|
++-----------------------+      +--------------------------+
+```
+
+### 1. Future Embedding Layer
+All cognitive converted queries and text chunks will be piped through an embedding service (such as OpenAI `text-embedding-3-small` or HuggingFace transformers). This layer will replace text strings with a dense `1536` dimensional float vector representing the semantic meaning of the words.
+
+### 2. Future Vector Database
+Instead of `localStorage` search loops, `ChunkIndexer` and `MemoryStorage` will read/write vectors to an external Vector Database (such as ChromeDB, pgvector, pg, Pinecone, or Qdrant). The database will indexing document embeddings to allow high-performance operations.
+
+### 3. Future Retrieval Pipeline
+Our current keyword matching will be upgraded to hybrid search (combining BM25 keyword matching with Dense Vector Cosine Similarity) followed by secondary re-ranking (Cross-Encoders) to optimize and select the top-N absolute most relevant context snippets.
+
+---
 
 ## Development Workflow
 
@@ -70,101 +153,6 @@ npm run build
 ```
 
 ---
-
-## Sprint 2 — Enterprise Design System
-
-Our repository features a complete, highly-scalable **Enterprise Design System & UI Core** designed with premium SaaS aesthetics (inspired by Linear, Stripe, and OpenAI).
-
-### Design Tokens
-
-All visual constants are configured as semantic **Design Tokens** (using CSS Custom Properties in `src/app/globals.css` map to Tailwind `@theme` utilities). This guarantees absolute design consistency across light and dark modes without hardcoded colors.
-
-- **Brand Colors:**
-  - `Primary`: Indigo (`--primary`: `#4f46e5` Light / `#6366f1` Dark)
-  - `Secondary`: Slate (`--secondary`: `#64748b` Light / `#94a3b8` Dark)
-  - `Accent`: Teal (`--accent`: `#0d9488` Light / `#14b8a6` Dark)
-  - `Success`: Emerald (`--success`: `#10b981` Light / `#34d399` Dark)
-  - `Warning`: Amber (`--warning`: `#f59e0b` Light / `#fbbf24` Dark)
-  - `Danger`: Rose/Red (`--danger`: `#ef4444` Light / `#f87171` Dark)
-- **Surfaces & Layouts:**
-  - `Background`: Very light grey `#f8fafc` Light / Dark deep grey `#030712` Dark.
-  - `Surface / Card`: Pure White `#ffffff` Light / Steel grey `#1f2937` Dark.
-  - `Border`: Slate borders (`--border`).
-- **Typography:** Custom Google Font Geist integration configured for:
-  - Display (large hero sizes)
-  - Headings & Titles (firm bold sizes)
-  - Subtitles, Body, Caption, Small Text, and Code.
-- **Visual Parameters:** Standardized radii (`radius-sm` to `radius-full`), shadows (`shadow-sm` to `shadow-xl`), hover animations, focus rings, and z-indexes.
-
-### Theme System
-
-The design system incorporates a dual **Dark Theme & Light Theme** toggle utilizing a state-driven Context Provider (`src/context/ThemeContext.tsx`).
-
-To eliminate hydration mismatches in Next.js Server Components, we leverage React 19's **`useSyncExternalStore`** hook inside our theme subscriber. This resolves hydration discrepancies by enforcing server-safe theme defaults during initial render, and synchronously applying user storage choices after client mounting—fully compliant with strict concurrent mode rules.
-
-### Components
-
-We implemented over **30+ Production-Ready Reusable UI Components** under `src/components/ui/` and `src/components/layout/`.
-
-1. **Buttons & Badges:** `Button` (with prefix/suffix/loading states), `IconButton` (ARIA labeled), `Badge` (pill/sizes), `Avatar` (image/initial fallbacks), `Chip` (dismissible tags), and `Card` (interactive shadow options).
-2. **Inputs & Controls:** `Input`, `PasswordInput` (toggle visibility), `Textarea`, `Checkbox`, `Radio`, `Switch` (sliding toggle), and custom `Select`.
-3. **Overlays & Popups:** `DropdownMenu`, `Popover`, `Tooltip` (keyboard hover trigger), `Modal` (scroll locking & keyboard trap), and alert `Dialog`.
-4. **Status & Loading:** `LoadingSpinner` (scalable), `ProgressBar` (interactive), `SkeletonLoader` (animation pulsing), `EmptyState` (with icon and custom buttons), `ErrorState` (retry action), and `Notification` (dismissible banners).
-5. **Interactive Navigation:** `Tabs`, `Accordion` (collapsible list), `Breadcrumb`, and `Pagination` (dynamic ellipses).
-
-### Layout & Responsive Grid
-
-The layout features standard responsive containers (`Container`, `Section`) and shell components (`Navbar`, `Sidebar`, `Topbar`, `Footer`) built with responsive grids for Desktop, Tablet, and Mobile viewport compatibility.
-
----
-
-## Roadmap
-
-- **Sprint 1:** Project Initialization and Infrastructure Foundation. (Complete)
-- **Sprint 2:** Design System Implementation and Atomic UI Core. (Complete)
-- **Sprint 3:** Visual Agent Designer, Dashboard & Workspace Editor. (Complete)
-- **Sprint 4:** Multi-LLM Provider Architecture & AI Gateway Layer. (Current - Complete)
-- **Sprint 5:** Memory Systems, Vector Store & Retrieval Augmented Generation (RAG). (Next)
-
----
-
-## Sprint 4 — Multi-LLM Provider Architecture & AI Gateway
-
-Sprint 4 introduces the modular cognitive core of the AgentOps AI Studio. This architecture prepares the entire platform to seamlessly support multiple model backends with total abstraction, decoupled gateways, and zero changes to downstream agent/workflow modules.
-
-### Clean Architecture Core (`src/lib/ai/`)
-
-- **Strongly-Typed Interface (`types/index.ts`)**: Strongly types all entities including providers, models, chat requests/responses, token usage, latencies, and streaming chunks.
-- **Provider Interface Contract (`providers/base/BaseAIProvider.ts`)**: Defines standard lifecycle and generation contract methods (`initialize`, `chat`, `stream`, `listModels`, `validateConnection`, `health`) that every provider must implement.
-- **Unified Provider Registry (`services/ProviderRegistry.ts`)**: Employs the Registry pattern to support dynamic runtime onboarding, listing, search, and fallback for cognitive LLM providers.
-- **AI Gateway Layer (`services/AIService.ts`)**: The sole cognitive interface of the application. DOWNSTREAM components (such as Agents, Dashboards, and Workspaces) never query API endpoints directly; they issue messages to `AIService` which handles routing, capabilities discovery, and error boundaries.
-
-### Production-Ready Mock Providers (`providers/`)
-
-Six mocked providers simulate real API latency, token metrics, and distinctive conversational behaviors:
-1. **OpenAI**: Business professional, planning focused.
-2. **Anthropic**: Long, deeply analytical systems engineering explanations.
-3. **Google Gemini**: Creative, brainstorming, analogical.
-4. **OpenRouter**: Low-level, JSON block formatted technical proxy responses.
-5. **Ollama**: Local physical execution focus, offline, 100% private datasets.
-6. **Azure OpenAI**: Criptografia AES-256, private VNets, SOC 2 compliance, SLA focused.
-
-### Dynamic Configurations & Playground (`hooks/`, `app/settings/`, `app/playground/`)
-
-- **Global Config hook (`useAIConfig`)**: Connects Settings and Playground page, keeping active state persisted asynchronously to browser `localStorage` to avoid concurrent render/hydration conflicts.
-- **Settings Workspace (`/settings`)**: Interactive control panel to manage model backends, API key templates, temperature, max response tokens, and testing connection health in real-time.
-- **Playground Canvas (`/playground`)**: High-fidelity chat shell to inspect and brainstorm prompt generations. Displays real-time response metrics (completion tokens, prompt tokens, total, latency in ms) and matches brand standards.
-
-### Preparation for Sprint 5 (Memory & RAG)
-
-This decoupled, clean architecture directly prepares the platform for Sprint 5:
-- **Consistent Message Schema**: Storing messages using the standardized `ChatMessage` array schema simplifies the creation of a unified conversational memory system.
-- **Base Embeddings Support**: All provider capabilities list `embeddings` support, allowing vector conversions to plug straight into our registry.
-- **Streaming Hooks**: Stream interface signatures ensure RAG responses render gradually in real-time, matching modern chatbot aesthetics.
-
-## Current Status
-
-**Sprint 4 AI Gateway Complete.** Built with absolute strict compliance, verified, documented, and compiled with exactly **0 compilation errors and 0 linting warnings**.
 
 ## License
 
