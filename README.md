@@ -32,13 +32,17 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
     │   ├── layout/         # Shell layout blocks (Topbar, Sidebar, etc.)
     │   ├── memory/         # Reusable Memory UI components (cards, timelines, filters)
     │   ├── rag/            # Reusable RAG UI components (index status, uploaders, previewers)
+    │   ├── tools/          # Reusable timeline, step and metrics tool components
+    │   ├── workflows/      # Reusable visual canvases, inspectors, mini-maps and toolbars
     │   └── ui/             # Reusable atomic UI elements (Buttons, Inputs, etc.)
     ├── context/            # React Context state providers (ThemeContext, AgentContext)
     ├── hooks/              # Custom React Hooks (useIsMounted)
     ├── lib/                # Modular utilities and third-party clients
     │   ├── ai/             # Cognitive AI Gateway layer (providers, services, types)
     │   ├── memory/         # Local Memory System (types, storage, service, hooks, utils)
-    │   └── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
+    │   ├── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
+    │   ├── tools/          # Tools Engine, Execution Pipeline, Agent Executor & Orchestrator
+    │   └── workflows/      # Workflow Engine, Runner, Logs, Triggers and Execution Monitor
     └── types/              # Global TypeScript interfaces and definitions
 ```
 
@@ -60,44 +64,45 @@ Sprint 4 introduces the modular cognitive core of the AgentOps AI Studio. This a
 
 Sprint 5 establishes the comprehensive architectural foundation for context retention, persistent user personalization, and Retrieval-Augmented Generation (RAG).
 
-### 1. Memory System Architecture (`src/lib/memory/`)
+---
 
-The Memory system acts as the cognitive context cache for AI Agents. It differentiates between short-term (temporary conversation session data) and long-term (persistent facts) memories:
+## Sprint 6 — Tools Engine, Agent Execution & Multi-Agent Orchestration
 
-- **Storage Client (`MemoryStorage.ts`):** Direct hydration-safe interface interacting with browser `localStorage`. Implements standard CRUD operations, statistics compilation, and mock relevance scoring.
-- **Service Layer (`MemoryService.ts`):** The single entry point for memory access. It manages cognitive stores, updates access counts, tracks timestamps, and formats retrieved memories into structured markdown blocks.
-- **Unified Scopes:**
-  - `conversation`: Local to the active chat session (short-term).
-  - `agent`: Local to a specific specialized agent instance.
-  - `project`: Local to the workspace's project scope.
-  - `user`: Local to the active user's persistent preferences.
-  - `global`: Broad, cross-workspace facts.
+Sprint 6 transforms AgentOps AI Studio from a conversational interface into an executable multitool platform. It allows specialized AI agents to plan and call programmatic tools, aggregate data, and cooperate with each other under unified orchestration schemas.
 
-### 2. Retrieval-Augmented Generation (RAG) Architecture (`src/lib/rag/`)
+---
 
-RAG allows Agents to access offline knowledge bases and corporate documents during prompt execution:
+## Sprint 7 — Workflow Automation Engine & Multi-Agent Collaboration
 
-- **Mock Document Parser (`DocumentParser.ts`):** Simulates textual extraction of various file formats (PDF, DOCX, TXT, Markdown, CSV, Excel, JSON). Automatically splits text into paragraphs/chunks with simulated page numbers, line offsets, and word counts.
-- **Chunk Indexer (`ChunkIndexer.ts`):** Maintains the in-memory document metadata index. Implements keyword-matching search and calculates mock relevance scores based on query term frequency.
-- **Retrieval Service (`RetrievalService.ts`):** Executes queries, ranks matched chunks, and formats source citations with document names, page pointers, and matching relevance scores.
+Sprint 7 delivers the core enterprise capabilities for creating, visual mapping, running, and auditing multi-step automation diagrams.
 
-### 3. Memory + AI Gateway Integration (`src/lib/ai/services/AIService.ts`)
+### 1. Workflow Domain & Engine (`src/lib/workflows/`)
 
-Before any chat generation or stream is forwarded to the registered providers (OpenAI, Anthropic, Gemini, etc.), `AIService` intercepts the payload, extracts the last user query, and queries the local Memory and RAG Retrieval Services.
+- **Domain Model (`types/index.ts`):** Establishes strong typing schemas for `Workflow`, `WorkflowNode`, `WorkflowEdge`, `WorkflowExecution`, `WorkflowStatus`, and conditions.
+- **Workflow Runner (`runner/WorkflowRunner.ts`):** Processes node states (agents, delay waits, tool operations) sequentially, resolving branches, handling timeouts, and caching output parameters in state variables.
+- **Workflow Engine (`engine/WorkflowEngine.ts`):** Coordinates creation, deletion, duplication, saving, execution listener registers, and hydrates workflow templates securely from `localStorage`.
+- **Trigger Service (`services/TriggerService.ts`):** Exposes manual, cron scheduling,webhook, and DB events.
+- **Execution Monitor (`services/ExecutionMonitor.ts`):** Aggregates KPIs like success rates, latency averages, and ranks active tools and workflows.
+- **Workflow Log Service (`services/WorkflowLogService.ts`):** Safely persists completed run path logs and metadata records in local storage.
 
-The relevant context blocks and source citations are formatted and appended transparently to the prompt payload, ensuring total contextual awareness:
+### 2. Multi-Agent Delegation & Shared Context
 
-```text
-[User Message Content]
-...
---- INFORMAÇÕES DE MEMÓRIA RECUPERADAS ---
-[Memória Relacionada #1] (user/core_preference): "O usuário prefere explicações detalhadas de engenharia de sistemas..."
------------------------------------------
+We upgraded the central `AgentOrchestrator` to support agent-to-agent task delegation. When an agent cannot fulfill a requirement alone, it can instantiate a downstream sub-agent:
 
---- CONTEXTO DE DOCUMENTOS DE CONHECIMENTO RECUPERADOS ---
-[Documento Relacionado #1] "politica_lgpd.pdf" pág. 1 (Relevância: 85%): "O estúdio AgentOps AI Studio utiliza criptografia simétrica local..."
-----------------------------------------------------
-```
+- Task ownership is logged.
+- Context parameters are shared.
+- Memory and RAG results can be compiled in shared caches.
+- Dependencies are tracked sequentially in execution timelines.
+
+### 3. Custom Visual Workflow Canvas & Inspector (`src/components/workflows/`)
+
+We designed a fully responsive custom **Visual Canvas** using pure CSS Grid and SVG marker paths to avoid version peer conflicts. It supports:
+
+- **Canvas Rendering:** Dynamic nodes positioning and custom bezier path connections.
+- **Element Sidebar:** Drag-style toolbox for inserting new Agent, Tool, Delay or Branch nodes.
+- **Workflow Inspector:** Dedicated parameters editor supporting tool inputs, conditional comparisons, and timing parameters.
+- **Minimap Visualization:** Responsive small-scale map representing node coordinates.
+- **Execution Timeline:** Real-time run tracer with glowing active states.
 
 ---
 

@@ -6,8 +6,11 @@ import {
   Send,
   Trash2,
   Sliders,
-  HelpCircle,
   Zap,
+  Cpu,
+  Database,
+  BookOpen,
+  ArrowRight,
 } from 'lucide-react';
 
 import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout';
@@ -15,70 +18,76 @@ import { Button } from '../../components/ui/Button';
 import { Textarea } from '../../components/ui/Textarea';
 import { Select } from '../../components/ui/Select';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { useAIConfig } from '../../lib/ai/hooks/useAIConfig';
-import { AIProviderId, ChatMessage, AIModel, StreamingChunk } from '../../lib/ai/types';
-import { AIService } from '../../lib/ai/services/AIService';
+import { useAgents } from '@/context/AgentContext';
+import { ChatMessage } from '../../lib/ai/types';
 import { useToast } from '../../components/ui/Toast';
+import { AgentExecutor } from '../../lib/tools/executor/AgentExecutor';
+import { ToolRegistry } from '../../lib/tools/registry/ToolRegistry';
+import { ExecutionTimeline } from '../../components/tools/TimelineComponents';
+import { Card } from '../../components/ui/Card';
+import { ToolStatus, ToolResult } from '../../lib/tools/types';
 
-export default function PlaygroundPage() {
-  const {
-    configs,
-    activeProviderId,
-    availableModels,
-    generationSettings,
-  } = useAIConfig();
+interface TimelineStepData {
+  toolId: string;
+  toolName: string;
+  iconName: string;
+  reason: string;
+  durationMs: number;
+  status: ToolStatus;
+  input: Record<string, unknown>;
+  output?: ToolResult;
+}
 
+export default function UpgradedPlaygroundPage() {
+  const { agents } = useAgents();
   const { toast } = useToast();
 
-  // Selected config overrides for playground
-  const [playProviderId, setPlayProviderId] = useState<AIProviderId>(activeProviderId);
-  const [playModelId, setPlayModelId] = useState<string>('');
-  const [playTemperature, setPlayTemperature] = useState<number>(generationSettings.temperature ?? 0.4);
-  const [playMaxTokens, setPlayMaxTokens] = useState<number>(generationSettings.maxTokens ?? 2048);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [playPrompt, setPlayPrompt] = useState<string>('');
-
-  // Message history
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Stats for the last response
+  // Settings
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [ragEnabled, setRagEnabled] = useState(true);
+  const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
+
+  // Last Execution Metadata and Steps
+  const [lastCitations, setLastCitations] = useState<string[]>([]);
   const [lastUsage, setLastUsage] = useState<{
-    promptTokens: number;
-    completionTokens: number;
     totalTokens: number;
     latencyMs: number;
   } | null>(null);
+  const [lastTimelineSteps, setLastTimelineSteps] = useState<TimelineStepData[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Sync state with global default provider when context updates
+  // Default active agent select on mount
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (activeProviderId) {
-        setPlayProviderId(activeProviderId);
+      const active = agents.filter((a) => a.status === 'active');
+      if (active.length > 0) {
+        setSelectedAgentId(active[0].id);
+      } else if (agents.length > 0) {
+        setSelectedAgentId(agents[0].id);
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [activeProviderId]);
+  }, [agents]);
 
-  // Sync model list when provider changes
+  // Default all tool ids as selected
   useEffect(() => {
     const timer = setTimeout(() => {
-      const providerModels = availableModels.filter((m: AIModel) => m.providerId === playProviderId);
-      const activeConfig = configs[playProviderId];
-
-      if (activeConfig && providerModels.some((m: AIModel) => m.id === activeConfig.selectedModelId)) {
-        setPlayModelId(activeConfig.selectedModelId);
-      } else if (providerModels.length > 0) {
-        setPlayModelId(providerModels[0].id);
-      } else {
-        setPlayModelId('');
+      try {
+        const reg = ToolRegistry.getInstance();
+        setSelectedToolIds(reg.list().map((t) => t.id));
+      } catch {
+        // safe fallback
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [playProviderId, availableModels, configs]);
+  }, []);
 
-  // Scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -87,19 +96,13 @@ export default function PlaygroundPage() {
     scrollToBottom();
   }, [messages, isGenerating]);
 
-  // Handle send prompt
   const handleSendPrompt = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!playPrompt.trim() || isGenerating) return;
 
-    // Verify if provider is enabled
-    const providerConfig = configs[playProviderId];
-    if (providerConfig && !providerConfig.enabled) {
-      toast(
-        'Provedor Inativo',
-        `O provedor ${playProviderId.toUpperCase()} está inativo. Por favor, ative-o nas Configurações.`,
-        'danger'
-      );
+    const agent = agents.find((a) => a.id === selectedAgentId);
+    if (!agent) {
+      toast('Nenhum Agente Selecionado', 'Por favor, selecione ou crie um agente para interagir.', 'danger');
       return;
     }
 
@@ -110,77 +113,64 @@ export default function PlaygroundPage() {
       timestamp: new Date().toISOString(),
     };
 
-    setMessages((prev: ChatMessage[]) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
+    const originalPrompt = playPrompt;
     setPlayPrompt('');
     setIsGenerating(true);
 
     try {
-      const aiService = AIService.getInstance();
+      const executor = AgentExecutor.getInstance();
 
-      // Simulate chat response or stream
-      const chatRequest = {
-        providerId: playProviderId,
-        modelId: playModelId,
-        messages: [...messages, userMsg],
-        settings: {
-          temperature: playTemperature,
-          maxTokens: playMaxTokens,
-        },
-      };
+      // Trigger multi-layer orchestration simulation
+      const result = await executor.execute(agent, originalPrompt, {
+        agentId: agent.id,
+        variables: {},
+        memoryEnabled,
+        ragEnabled,
+      });
 
-      if (generationSettings.stream) {
-        // Stream implementation
-        const initialAssistantMsg: ChatMessage = {
+      // Filter timeline steps to show only those matching selectedToolIds
+      const registry = ToolRegistry.getInstance();
+      const mappedSteps: TimelineStepData[] = result.stepsExecuted
+        .filter((step) => selectedToolIds.includes(step.step.toolId))
+        .map((step) => {
+          const toolMeta = registry.find(step.step.toolId);
+          return {
+            toolId: step.step.toolId,
+            toolName: toolMeta?.name || step.step.toolId,
+            iconName: toolMeta?.icon || 'Terminal',
+            reason: step.step.reason,
+            durationMs: step.result.metrics?.durationMs || 10,
+            status: step.result.success ? ('success' as ToolStatus) : ('failed' as ToolStatus),
+            input: step.step.input,
+            output: step.result,
+          };
+        });
+
+      setLastTimelineSteps(mappedSteps);
+      setLastCitations(result.citations);
+      setLastUsage(result.usage);
+
+      // Append Response message
+      setMessages((prev) => [
+        ...prev,
+        {
           id: `msg-${Date.now()}-assistant`,
           role: 'assistant',
-          content: '',
+          content: result.agentResponse,
           timestamp: new Date().toISOString(),
-        };
-
-        setMessages((prev: ChatMessage[]) => [...prev, initialAssistantMsg]);
-
-        let completeText = '';
-        await aiService.stream(chatRequest, (chunk: StreamingChunk) => {
-          completeText += chunk.content;
-          setMessages((prev: ChatMessage[]) =>
-            prev.map((m: ChatMessage) =>
-              m.id === initialAssistantMsg.id
-                ? { ...m, content: completeText }
-                : m
-            )
-          );
-          if (chunk.usage) {
-            setLastUsage({
-              promptTokens: chunk.usage.promptTokens,
-              completionTokens: chunk.usage.completionTokens,
-              totalTokens: chunk.usage.totalTokens,
-              latencyMs: 350,
-            });
-          }
-        });
-      } else {
-        // Simple chat implementation
-        const response = await aiService.chat(chatRequest);
-        setMessages((prev: ChatMessage[]) => [...prev, response.message]);
-        setLastUsage({
-          promptTokens: response.usage.promptTokens,
-          completionTokens: response.usage.completionTokens,
-          totalTokens: response.usage.totalTokens,
-          latencyMs: response.latencyMs,
-        });
-      }
+        },
+      ]);
     } catch (err: unknown) {
       console.error(err);
-      const errMsg = err instanceof Error ? err.message : 'Erro durante a inferência simulada.';
-      toast('Invocação AI Falhou', errMsg, 'danger');
-
-      // Add error message in history
-      setMessages((prev: ChatMessage[]) => [
+      const errMsg = err instanceof Error ? err.message : String(err);
+      toast('Execução Falhou', errMsg, 'danger');
+      setMessages((prev) => [
         ...prev,
         {
           id: `msg-${Date.now()}-err`,
           role: 'assistant',
-          content: `⚠️ [Falha na Simulação]: Não foi possível obter resposta de ${playProviderId.toUpperCase()}. Detalhes: ${errMsg}`,
+          content: `⚠️ [Falha no Executor]: O motor de ferramentas e planejamento heuristics falhou. Detalhes: ${errMsg}`,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -191,34 +181,40 @@ export default function PlaygroundPage() {
 
   const handleClearHistory = () => {
     setMessages([]);
+    setLastTimelineSteps([]);
     setLastUsage(null);
-    toast('Histórico Limpo', 'O feed de conversas do Playground foi limpo.', 'info');
+    setLastCitations([]);
+    toast('Sessão Reiniciada', 'O feed de interações do Playground foi limpo.', 'info');
   };
 
-  const playProviderName = configs[playProviderId] ? playProviderId.toUpperCase() : 'Provedor';
-  const providerModels = availableModels.filter((m: AIModel) => m.providerId === playProviderId);
+  const handleToolToggle = (id: string) => {
+    setSelectedToolIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+  const allTools = ToolRegistry.getInstance().list();
 
   return (
     <WorkspaceLayout
-      activePath="agents" // Keep active layout tab as agents/playground
-      title={`AI Playground: ${playProviderName}`}
+      activePath="playground"
+      title="Playground Multitool de Agentes"
       breadcrumbs={[{ label: 'Studio' }, { label: 'Playground' }]}
     >
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-6 h-[calc(100vh-10rem)]">
-
-        {/* Main Chat Interface */}
+      <div className="max-w-7xl mx-auto flex flex-col xl:flex-row gap-6 h-[calc(100vh-10rem)] text-left">
+        {/* Left Side: Agent Chat Feed */}
         <div className="flex-1 flex flex-col bg-card border border-border rounded-2xl overflow-hidden min-w-0 shadow-xs">
-
-          {/* Header of Chat */}
-          <div className="border-b border-border p-4 bg-neutral-light/20 flex items-center justify-between select-none shrink-0">
-            <div className="flex items-center gap-2">
+          {/* Topbar of Feed */}
+          <div className="border-b border-border p-4 bg-neutral-light/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none shrink-0">
+            <div className="flex items-center gap-3">
               <Sparkles className="h-4.5 w-4.5 text-primary animate-pulse" />
-              <div className="flex flex-col">
-                <span className="text-text-primary text-sm font-bold truncate">
-                  Sessão de Conversa Simultânea
+              <div className="text-left">
+                <span className="text-text-primary text-sm font-bold block">
+                  Console de Simulação Heurística
                 </span>
-                <span className="text-text-muted text-[10px]">
-                  Visualizador de resposta e tom cognitivo específico de cada modelo
+                <span className="text-text-muted text-[10px] block">
+                  Planejamento e resolução automática de tarefas com acesso a ferramentas
                 </span>
               </div>
             </div>
@@ -234,48 +230,53 @@ export default function PlaygroundPage() {
             </Button>
           </div>
 
-          {/* Messages Feed */}
+          {/* Messages view list */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
             {messages.length > 0 ? (
-              messages.map((m: ChatMessage) => {
+              messages.map((m) => {
                 const isUser = m.role === 'user';
                 return (
                   <div
                     key={m.id}
                     className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
                   >
-                    {/* Role Icon */}
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-xs select-none ${
-                      isUser
-                        ? 'bg-primary text-white'
-                        : 'bg-neutral-light border border-border text-text-primary dark:bg-neutral-light/10'
-                    }`}>
+                    {/* Role circle avatar */}
+                    <div
+                      className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-xs select-none ${
+                        isUser
+                          ? 'bg-primary text-white'
+                          : 'bg-neutral-light border border-border text-text-primary'
+                      }`}
+                    >
                       {isUser ? 'U' : 'AI'}
                     </div>
 
-                    {/* Bubble Content */}
-                    <div className="space-y-1 max-w-[85%]">
-                      <div className={`rounded-2xl p-4 text-sm leading-relaxed border ${
-                        isUser
-                          ? 'bg-primary/5 text-text-primary border-primary/20 rounded-tr-none'
-                          : 'bg-neutral-light/30 text-text-primary border-border/50 rounded-tl-none'
-                      }`}>
-                        {m.content ? (
-                          <div className="whitespace-pre-wrap">{m.content}</div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-text-muted select-none">
-                            <LoadingSpinner size="xs" />
-                            <span>Processando inferência...</span>
-                          </div>
-                        )}
+                    <div className="space-y-1 max-w-[85%] text-left">
+                      <div
+                        className={`rounded-2xl p-4 text-sm leading-relaxed border ${
+                          isUser
+                            ? 'bg-primary/5 text-text-primary border-primary/20 rounded-tr-none'
+                            : 'bg-neutral-light/30 text-text-primary border-border/50 rounded-tl-none'
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap">{m.content}</div>
                       </div>
 
-                      <div className={`flex items-center gap-2 text-[9px] text-text-muted select-none px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
-                        <span>{new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                        {!isUser && m.content && (
+                      <div
+                        className={`flex items-center gap-2 text-[9px] text-text-muted select-none px-1 ${
+                          isUser ? 'justify-end' : 'justify-start'
+                        }`}
+                      >
+                        <span>
+                          {new Date(m.timestamp).toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        {!isUser && selectedAgent && (
                           <>
                             <span>&bull;</span>
-                            <span className="font-semibold text-primary">{playProviderId.toUpperCase()}</span>
+                            <span className="font-semibold text-primary">{selectedAgent.name}</span>
                           </>
                         )}
                       </div>
@@ -284,26 +285,28 @@ export default function PlaygroundPage() {
                 );
               })
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 select-none">
+              <div className="h-full flex flex-col items-center justify-center text-center p-8 select-none my-12">
                 <div className="bg-primary/10 text-primary p-4 rounded-full mb-4">
-                  <Sparkles className="h-8 w-8" />
+                  <Cpu className="h-8 w-8 animate-pulse" />
                 </div>
-                <h3 className="text-text-primary text-base font-bold">Inicie sua experimentação de IA</h3>
+                <h3 className="text-text-primary text-base font-bold">Inicie a Orquestração Multitool</h3>
                 <p className="text-text-secondary text-xs mt-1 max-w-md leading-relaxed">
-                  Escolha um provedor cognitivo e um modelo de processamento no painel à direita, escreva uma mensagem e observe como o modelo responde com seu tom de comportamento específico.
+                  Digite uma solicitação que requeira ferramentas. Ex: <i>&quot;Calcular 250 * 12 e buscar no RAG o manual de conformidade&quot;</i>. O executor planejará os passos e resolverá tudo!
                 </p>
               </div>
             )}
 
-            {/* Generating Loader Bubble */}
-            {isGenerating && !messages.some((m: ChatMessage) => m.role === 'assistant' && !m.content) && (
+            {isGenerating && (
               <div className="flex gap-3 mr-auto max-w-3xl">
-                <div className="h-8 w-8 rounded-full bg-neutral-light border border-border flex items-center justify-center text-xs font-bold text-text-primary dark:bg-neutral-light/10 select-none">
+                <div className="h-8 w-8 rounded-full bg-neutral-light border border-border flex items-center justify-center text-xs font-bold text-text-primary select-none">
                   AI
                 </div>
-                <div className="rounded-2xl p-4 bg-neutral-light/30 border border-border/50 rounded-tl-none text-sm text-text-muted flex items-center gap-2 select-none">
+                <div className="rounded-2xl p-4 bg-neutral-light/30 border border-border/50 rounded-tl-none text-sm text-text-muted flex items-center gap-2 select-none text-left">
                   <LoadingSpinner size="xs" />
-                  <span>Conectando com o gateway {playProviderId.toUpperCase()}...</span>
+                  <div className="space-y-1">
+                    <p className="font-semibold text-xs text-text-primary">Planejando execuções...</p>
+                    <p className="text-[10px] text-text-muted leading-tight">Buscando contextos e resolvendo tarefas heuristicamente</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -311,12 +314,16 @@ export default function PlaygroundPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Prompt Entry Box */}
+          {/* Form write panel */}
           <div className="p-4 border-t border-border bg-neutral-light/10 shrink-0">
             <form onSubmit={handleSendPrompt} className="flex gap-3 items-end">
               <div className="flex-1">
                 <Textarea
-                  placeholder={`Envie uma mensagem para o modelo ${playModelId || playProviderName}... (Enter envia)`}
+                  placeholder={
+                    selectedAgent
+                      ? `Escreva uma instrução para o agente ${selectedAgent.name}...`
+                      : 'Escolha um agente no painel ao lado...'
+                  }
                   value={playPrompt}
                   onChange={(e) => setPlayPrompt(e.target.value)}
                   onKeyDown={(e) => {
@@ -326,8 +333,8 @@ export default function PlaygroundPage() {
                     }
                   }}
                   rows={1}
-                  className="py-3 px-4 resize-none max-h-32 bg-card scrollbar-thin rounded-xl"
-                  disabled={isGenerating}
+                  className="py-3 px-4 resize-none max-h-32 bg-card rounded-xl"
+                  disabled={isGenerating || !selectedAgentId}
                 />
               </div>
               <Button
@@ -335,143 +342,128 @@ export default function PlaygroundPage() {
                 variant="primary"
                 size="md"
                 className="rounded-xl h-[44px] shrink-0"
-                disabled={!playPrompt.trim() || isGenerating}
+                disabled={!playPrompt.trim() || isGenerating || !selectedAgentId}
                 leftIcon={<Send className="h-4 w-4" />}
               >
-                Enviar
+                Executar
               </Button>
             </form>
           </div>
-
         </div>
 
-        {/* Right Configuration Parameter Settings Panel */}
-        <div className="w-full lg:w-80 bg-card border border-border rounded-2xl p-5 space-y-6 select-none shrink-0 overflow-y-auto h-auto lg:h-full shadow-xs">
-          <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-            <Sliders className="h-4.5 w-4.5 text-primary" />
-            <h3 className="text-text-primary text-sm font-bold">Parâmetros do Playground</h3>
-          </div>
+        {/* Right Side: Parameters & Timeline Visualization split column */}
+        <div className="w-full xl:w-96 flex flex-col gap-6 select-none shrink-0 overflow-y-auto h-auto xl:h-full">
+          {/* Step Config Panel */}
+          <Card className="p-5 space-y-5 text-left border-border">
+            <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+              <Sliders className="h-4.5 w-4.5 text-primary" />
+              <h3 className="text-text-primary text-sm font-bold">Motor de Orquestração</h3>
+            </div>
 
-          {/* Model and Provider selection options */}
-          <div className="space-y-4">
-
-            {/* Provider Selector */}
-            <Select
-              label="Provedor de IA"
-              value={playProviderId}
-              onChange={(e) => setPlayProviderId(e.target.value as AIProviderId)}
-            >
-              <option value="openai">OpenAI (Profissional)</option>
-              <option value="anthropic">Anthropic (Analítico longo)</option>
-              <option value="gemini">Google Gemini (Criativo)</option>
-              <option value="openrouter">OpenRouter (Json Técnico)</option>
-              <option value="ollama">Ollama (Offline local)</option>
-              <option value="azure">Azure OpenAI (Enterprise)</option>
-            </Select>
-
-            {/* Model Selector */}
-            {playModelId ? (
+            <div className="space-y-4">
+              {/* Agent Selector */}
               <Select
-                label="Modelo de Linguagem"
-                value={playModelId}
-                onChange={(e) => setPlayModelId(e.target.value)}
+                label="Agente de IA Ativo"
+                value={selectedAgentId}
+                onChange={(e) => setSelectedAgentId(e.target.value)}
               >
-                {providerModels.map((m: AIModel) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} ({a.specialty})
                   </option>
                 ))}
               </Select>
-            ) : (
-              <div className="space-y-1">
-                <span className="text-text-primary text-xs font-semibold">Modelo de Linguagem</span>
-                <div className="text-xs text-danger font-medium border border-danger/20 bg-danger/5 rounded-lg p-2.5">
-                  Provedor desativado. Vá em Configurações para ativá-lo.
+
+              {/* Memory and RAG toggles */}
+              <div className="space-y-2.5 pt-1">
+                <span className="text-text-primary text-xs font-semibold block">Camadas Cognitivas</span>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2.5 text-xs text-text-secondary cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={memoryEnabled}
+                      onChange={(e) => setMemoryEnabled(e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                    />
+                    <Database className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>Habilitar Memory Store (Long-term)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 text-xs text-text-secondary cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ragEnabled}
+                      onChange={(e) => setRagEnabled(e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                    />
+                    <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>Habilitar RAG Indexer (Docs)</span>
+                  </label>
                 </div>
               </div>
-            )}
 
-            {/* Micro temperature controller */}
-            <div className="space-y-1.5 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-text-primary text-xs font-semibold">Temperatura</span>
-                <span className="text-primary font-bold text-xs">{playTemperature.toFixed(1)}</span>
+              {/* Tool selector checklist */}
+              <div className="space-y-2">
+                <span className="text-text-primary text-xs font-semibold block">Inclusão de Ferramentas</span>
+                <div className="border border-border/60 bg-neutral-light/10 rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
+                  {allTools.map((tool) => (
+                    <label key={tool.id} className="flex items-center gap-2 text-xs text-text-secondary cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedToolIds.includes(tool.id)}
+                        onChange={() => handleToolToggle(tool.id)}
+                        className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+                      />
+                      <span>{tool.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={playTemperature}
-                onChange={(e) => setPlayTemperature(parseFloat(e.target.value))}
-                className="bg-border accent-primary h-1 w-full cursor-pointer rounded-lg appearance-none"
-              />
             </div>
+          </Card>
 
-            {/* Max tokens field */}
-            <div className="space-y-1.5">
-              <span className="text-text-primary text-xs font-semibold">Limite Máximo de Tokens</span>
-              <input
-                type="number"
-                min="100"
-                max="8192"
-                step="100"
-                value={playMaxTokens}
-                onChange={(e) => setPlayMaxTokens(parseInt(e.target.value) || 2048)}
-                className="border-border bg-neutral-light/25 w-full rounded-xl border p-2 text-xs focus:outline-hidden"
-              />
-            </div>
-
-          </div>
-
-          {/* Last response performance stats card */}
+          {/* Last Execution Statistics Metrics */}
           {lastUsage && (
-            <div className="bg-neutral-light/30 border border-border/60 rounded-xl p-4 space-y-2.5 animate-in slide-in-from-bottom-2 duration-300">
-              <span className="text-[10px] text-text-muted font-bold tracking-wider uppercase flex items-center gap-1">
-                <Zap className="h-3.5 w-3.5 text-accent animate-pulse" />
-                Métricas da Última Geração
+            <Card className="p-4 bg-neutral-light/30 border-border/60 space-y-3.5 text-left animate-in slide-in-from-bottom-2 duration-300">
+              <span className="text-[10px] text-text-muted font-bold tracking-wider uppercase flex items-center gap-1.5">
+                <Zap className="h-4 w-4 text-accent animate-pulse" />
+                Métricas da Orquestração
               </span>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs text-text-secondary">
-                  <span>Latência da Resposta</span>
-                  <span className="font-bold text-text-primary">{lastUsage.latencyMs}ms</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-text-secondary">
-                  <span>Prompt de Entrada</span>
-                  <span className="font-semibold text-text-primary">{lastUsage.promptTokens} tkn</span>
+                  <span>Duração de Execução</span>
+                  <span className="font-extrabold text-text-primary">{lastUsage.latencyMs}ms</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-text-secondary">
-                  <span>Resposta Gerada</span>
-                  <span className="font-semibold text-text-primary">{lastUsage.completionTokens} tkn</span>
+                  <span>Tokens Heurísticos</span>
+                  <span className="font-semibold text-text-primary">{lastUsage.totalTokens} tkn</span>
                 </div>
-
-                <div className="border-t border-border/40 my-2 pt-2 flex items-center justify-between text-xs text-text-primary font-bold">
-                  <span>Tokens Totais</span>
-                  <span className="text-primary">{lastUsage.totalTokens} tokens</span>
-                </div>
+                {lastCitations.length > 0 && (
+                  <div className="pt-2 border-t border-border/40 space-y-1">
+                    <span className="text-[9px] font-bold text-text-muted uppercase">Fontes/Citações RAG:</span>
+                    <ul className="text-[10px] text-text-secondary list-disc pl-4 space-y-0.5 text-left">
+                      {lastCitations.map((cit, idx) => (
+                        <li key={idx}>{cit}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
-            </div>
+            </Card>
           )}
 
-          {/* Guidelines info box */}
-          <div className="bg-primary/5 rounded-xl border border-primary/10 p-4 space-y-2 select-none">
-            <span className="text-[10px] text-primary font-bold tracking-wider uppercase flex items-center gap-1">
-              <HelpCircle className="h-3.5 w-3.5" />
-              Tons de Resposta
-            </span>
-            <p className="text-text-secondary text-[11px] leading-relaxed">
-              * **OpenAI**: Profissional de negócios.<br />
-              * **Anthropic**: Longo, reflexivo e analítico.<br />
-              * **Gemini**: Criativo com analogias estruturadas.<br />
-              * **OpenRouter**: Resposta técnica em bloco JSON.<br />
-              * **Ollama**: Focado em privacidade e offline local.<br />
-              * **Azure**: Alinhado a compliance e diretrizes executivas.
-            </p>
+          {/* Execution Timeline visualizer */}
+          <div className="flex-1 flex flex-col space-y-3 pb-6">
+            <h4 className="text-text-primary text-xs font-bold flex items-center gap-1.5 text-left px-1">
+              <ArrowRight className="h-4 w-4 text-primary" />
+              Linha de Tempo de Execuções
+            </h4>
+            <div className="flex-1 overflow-y-auto max-h-[450px]">
+              <ExecutionTimeline steps={lastTimelineSteps} />
+            </div>
           </div>
-
         </div>
-
       </div>
     </WorkspaceLayout>
   );

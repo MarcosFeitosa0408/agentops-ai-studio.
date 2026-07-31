@@ -15,6 +15,8 @@ import {
   Settings,
   Database,
   BookOpen,
+  Wrench,
+  GitBranch,
 } from 'lucide-react';
 import { Agent } from '@/types/agent';
 import { IconButton } from '@/components/ui/IconButton';
@@ -23,7 +25,7 @@ import { Input } from '@/components/ui/Input';
 interface WorkspaceSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  activePath: 'dashboard' | 'agents' | 'memory' | 'knowledge' | 'playground' | 'settings';
+  activePath: 'dashboard' | 'agents' | 'memory' | 'knowledge' | 'playground' | 'settings' | 'tools' | 'workflows';
   agents?: Agent[];
   selectedAgentId?: string;
   onAgentSelect?: (agent: Agent) => void;
@@ -65,6 +67,18 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       icon: Sparkles,
       href: '/playground',
       active: activePath === 'playground',
+    },
+    {
+      label: 'Workflows',
+      icon: GitBranch,
+      href: '/workflows',
+      active: activePath === 'workflows',
+    },
+    {
+      label: 'Ferramentas',
+      icon: Wrench,
+      href: '/tools',
+      active: activePath === 'tools',
     },
     {
       label: 'Memória Cognitiva',
