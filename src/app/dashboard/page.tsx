@@ -534,7 +534,7 @@ export default function DashboardPage() {
 
               <Card className="p-4 space-y-4">
                 {recentWfLogs.map((log) => (
-                  <div key={log.id} className="text-left space-y-1 pb-3 last:pb-0 border-b last:border-0 border-b-border/30">
+                  <div key={log.id} className="text-left space-y-1 pb-3 last:pb-0 border-b last:border-0 border-border/30">
                     <div className="flex items-center justify-between text-[9px] font-bold">
                       <span className="bg-success/10 text-success px-1.5 py-0.2 rounded-xs uppercase">
                         {log.status}

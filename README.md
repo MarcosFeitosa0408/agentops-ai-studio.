@@ -81,7 +81,7 @@ Sprint 7 delivers the core enterprise capabilities for creating, visual mapping,
 - **Domain Model (`types/index.ts`):** Establishes strong typing schemas for `Workflow`, `WorkflowNode`, `WorkflowEdge`, `WorkflowExecution`, `WorkflowStatus`, and conditions.
 - **Workflow Runner (`runner/WorkflowRunner.ts`):** Processes node states (agents, delay waits, tool operations) sequentially, resolving branches, handling timeouts, and caching output parameters in state variables.
 - **Workflow Engine (`engine/WorkflowEngine.ts`):** Coordinates creation, deletion, duplication, saving, execution listener registers, and hydrates workflow templates securely from `localStorage`.
-- **Trigger Service (`services/TriggerService.ts`):** Exposes manual, cron scheduling,webhook, and DB events.
+- **Trigger Service (`services/TriggerService.ts`):** Exposes manual, cron scheduling, webhook, and DB events.
 - **Execution Monitor (`services/ExecutionMonitor.ts`):** Aggregates KPIs like success rates, latency averages, and ranks active tools and workflows.
 - **Workflow Log Service (`services/WorkflowLogService.ts`):** Safely persists completed run path logs and metadata records in local storage.
 
