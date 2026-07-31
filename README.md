@@ -32,13 +32,15 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
     │   ├── layout/         # Shell layout blocks (Topbar, Sidebar, etc.)
     │   ├── memory/         # Reusable Memory UI components (cards, timelines, filters)
     │   ├── rag/            # Reusable RAG UI components (index status, uploaders, previewers)
+    │   ├── tools/          # Reusable timeline, step and metrics tool components
     │   └── ui/             # Reusable atomic UI elements (Buttons, Inputs, etc.)
     ├── context/            # React Context state providers (ThemeContext, AgentContext)
     ├── hooks/              # Custom React Hooks (useIsMounted)
     ├── lib/                # Modular utilities and third-party clients
     │   ├── ai/             # Cognitive AI Gateway layer (providers, services, types)
     │   ├── memory/         # Local Memory System (types, storage, service, hooks, utils)
-    │   └── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
+    │   ├── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
+    │   └── tools/          # Tools Engine, Execution Pipeline, Agent Executor & Orchestrator
     └── types/              # Global TypeScript interfaces and definitions
 ```
 
@@ -60,44 +62,46 @@ Sprint 4 introduces the modular cognitive core of the AgentOps AI Studio. This a
 
 Sprint 5 establishes the comprehensive architectural foundation for context retention, persistent user personalization, and Retrieval-Augmented Generation (RAG).
 
-### 1. Memory System Architecture (`src/lib/memory/`)
+---
 
-The Memory system acts as the cognitive context cache for AI Agents. It differentiates between short-term (temporary conversation session data) and long-term (persistent facts) memories:
+## Sprint 6 — Tools Engine, Agent Execution & Multi-Agent Orchestration
 
-- **Storage Client (`MemoryStorage.ts`):** Direct hydration-safe interface interacting with browser `localStorage`. Implements standard CRUD operations, statistics compilation, and mock relevance scoring.
-- **Service Layer (`MemoryService.ts`):** The single entry point for memory access. It manages cognitive stores, updates access counts, tracks timestamps, and formats retrieved memories into structured markdown blocks.
-- **Unified Scopes:**
-  - `conversation`: Local to the active chat session (short-term).
-  - `agent`: Local to a specific specialized agent instance.
-  - `project`: Local to the workspace's project scope.
-  - `user`: Local to the active user's persistent preferences.
-  - `global`: Broad, cross-workspace facts.
+Sprint 6 transforms AgentOps AI Studio from a conversational interface into an executable multitool platform. It allows specialized AI agents to plan and call programmatic tools, aggregate data, and cooperate with each other under unified orchestration schemas.
 
-### 2. Retrieval-Augmented Generation (RAG) Architecture (`src/lib/rag/`)
+### 1. Architectural Highlights (`src/lib/tools/`)
 
-RAG allows Agents to access offline knowledge bases and corporate documents during prompt execution:
+We designed a fully decouplable, strongly-typed **Tools Engine** containing clean interfaces and services:
 
-- **Mock Document Parser (`DocumentParser.ts`):** Simulates textual extraction of various file formats (PDF, DOCX, TXT, Markdown, CSV, Excel, JSON). Automatically splits text into paragraphs/chunks with simulated page numbers, line offsets, and word counts.
-- **Chunk Indexer (`ChunkIndexer.ts`):** Maintains the in-memory document metadata index. Implements keyword-matching search and calculates mock relevance scores based on query term frequency.
-- **Retrieval Service (`RetrievalService.ts`):** Executes queries, ranks matched chunks, and formats source citations with document names, page pointers, and matching relevance scores.
+- **Type Domain (`src/lib/tools/types/index.ts`):** Defines standard schema attributes for `Tool`, `ToolCategory`, `ToolParameter`, `ToolExecution`, `ToolResult`, `ToolStatus`, `ToolCapability`, `ToolPermission`, and `ExecutionContext`.
+- **Base Tool Interface (`src/lib/tools/base/BaseTool.ts`):** Defines abstract class `BaseTool` with built-in validator parsing and health status checks.
+- **Tool Registry (`src/lib/tools/registry/ToolRegistry.ts`):** Handles register/remove/find, tracking of execution statistics, and automatic default tool registrations.
+- **Tool Execution Service (`src/lib/tools/services/ToolExecutionService.ts`):** orchestrates run tasks, handles user role permission mapping, error captures, latency metrics, and supports configurable execution retries.
+- **Execution Log Service (`src/lib/tools/services/ExecutionLogService.ts`):** Hydration-safe logging component that persists run outcomes in localStorage.
 
-### 3. Memory + AI Gateway Integration (`src/lib/ai/services/AIService.ts`)
+### 2. Mock Tool Connectors (`src/lib/tools/implementations/`)
 
-Before any chat generation or stream is forwarded to the registered providers (OpenAI, Anthropic, Gemini, etc.), `AIService` intercepts the payload, extracts the last user query, and queries the local Memory and RAG Retrieval Services.
+We implemented 10 programmatically stable mock tools containing simulated execution runtimes:
 
-The relevant context blocks and source citations are formatted and appended transparently to the prompt payload, ensuring total contextual awareness:
+1. **Python Sandbox Executor:** Simulates data frame statistical groupings.
+2. **SQL Query Analyzer:** Translates inputs into relational tabular queries.
+3. **Excel Workbook Integrator:** Recalculates formula metrics on spreadsheets.
+4. **CSV Parser:** Slices and filters structured CSV data arrays.
+5. **REST API Dispatcher:** Delivers mock GET/POST REST communications.
+6. **High Precision Calculator:** Performs actual mathematical expressions evaluation.
+7. **JSON Syntactical Structurer:** Minifies or prettifies JSON input variables.
+8. **Cognitive Memory Retriever:** Interfaces directly with `MemoryService` context.
+9. **RAG Document Locator:** Scans and matches knowledge chunks via `RetrievalService`.
+10. **Google Web Search:** Simulates real-time search queries lookup.
 
-```text
-[User Message Content]
-...
---- INFORMAÇÕES DE MEMÓRIA RECUPERADAS ---
-[Memória Relacionada #1] (user/core_preference): "O usuário prefere explicações detalhadas de engenharia de sistemas..."
------------------------------------------
+### 3. Agent Executor & Multi-Agent Orchestrator
 
---- CONTEXTO DE DOCUMENTOS DE CONHECIMENTO RECUPERADOS ---
-[Documento Relacionado #1] "politica_lgpd.pdf" pág. 1 (Relevância: 85%): "O estúdio AgentOps AI Studio utiliza criptografia simétrica local..."
-----------------------------------------------------
-```
+- **Agent Executor (`src/lib/tools/executor/AgentExecutor.ts`):** Combines the complete execution lifecycle. When a user sends a request, the executor:
+  1. Queries relevant contextual facts from local Memory.
+  2. Pulls knowledge references from local RAG documents.
+  3. Forms a step plan heuristic (rule-based) of what tools are required.
+  4. Runs the planned tools through the execution pipeline.
+  5. Formulates and pipes the final consolidated context block through `AIService` to generate the final synthetic output.
+- **Multi-Agent Orchestrator (`src/lib/tools/orchestrator/AgentOrchestrator.ts`):** Supports executing agents sequentially or in parallel, allowing downstream sharing of output context and logs aggregation.
 
 ---
 

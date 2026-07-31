@@ -9,30 +9,42 @@ import {
   Sparkles,
   Activity,
   Database,
-  BookOpen,
-  Heart,
-  FileText,
   Cpu,
+  Wrench,
+  CheckCircle,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 
 import { useAgents } from '@/context/AgentContext';
 import { Agent } from '@/types/agent';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { WorkspaceLayout } from '@/components/workspace/WorkspaceLayout';
-import { CreateAgentModal } from '@/components/agents/CreateAgentModal';
-import { AgentStatusBadge } from '@/components/agents/AgentStatusBadge';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout';
+import { CreateAgentModal } from '../../components/agents/CreateAgentModal';
+import { AgentStatusBadge } from '../../components/agents/AgentStatusBadge';
 import { useAIConfig } from '../../lib/ai/hooks/useAIConfig';
 import { ProviderConfig } from '../../lib/ai/types';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
-// Import local systems managers with relative paths to avoid any Turbopack alias quirks
+// Local systems managers
 import { MemoryStorage } from '../../lib/memory/storage/MemoryStorage';
-import { ChunkIndexer } from '../../lib/rag/indexers/ChunkIndexer';
+import { ToolExecutionService } from '../../lib/tools/services/ToolExecutionService';
 import { MemoryItem } from '../../lib/memory/types';
-import { Document } from '../../lib/rag/types';
+import { ToolStatus, ToolResult } from '../../lib/tools/types';
+import { ExecutionTimeline } from '../../components/tools/TimelineComponents';
+
+interface TimelineStepData {
+  toolId: string;
+  toolName: string;
+  iconName: string;
+  reason: string;
+  durationMs: number;
+  status: ToolStatus;
+  input: Record<string, unknown>;
+  output?: ToolResult;
+}
 
 export default function DashboardPage() {
   const isMounted = useIsMounted();
@@ -40,29 +52,51 @@ export default function DashboardPage() {
   const { configs, activeProviderId } = useAIConfig();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  // States for Cognitive / RAG parameters
-  const [memoryCount, setMemoryCount] = useState(0);
-  const [documentCount, setDocumentCount] = useState(0);
+  // States for Cognitive / RAG / Executions parameters
   const [recentMemories, setRecentMemories] = useState<MemoryItem[]>([]);
-  const [recentDocuments, setRecentDocuments] = useState<Document[]>([]);
 
-  // Load Cognitive / RAG data safely
+  // Execution Metrics state
+  const [execMetrics, setExecMetrics] = useState({
+    totalExecutions: 0,
+    successfulExecutions: 0,
+    failedExecutions: 0,
+    averageLatencyMs: 0,
+    mostUsedToolId: 'N/A',
+  });
+  const [dashboardTimeline, setDashboardTimeline] = useState<TimelineStepData[]>([]);
+
+  // Load Cognitive / RAG / Tools Executions safely
   useEffect(() => {
     if (isMounted) {
       try {
         const mStorage = MemoryStorage.getInstance();
-        const rIndexer = ChunkIndexer.getInstance();
+        const execService = ToolExecutionService.getInstance();
 
-        const mStats = mStorage.statistics();
-        const rStats = rIndexer.getIndexMetadata();
         const listMems = mStorage.list().slice(0, 3);
-        const listDocs = rIndexer.getDocuments().slice(0, 3);
+
+        const metrics = execService.getMetrics();
+        const logs = execService.getLogs().slice(0, 2);
+
+        // Convert tool logs to timeline steps format
+        const registry = execService.getRegistry();
+        const timelineSteps = logs.map((log) => {
+          const toolMeta = registry.find(log.toolId);
+          return {
+            toolId: log.toolId,
+            toolName: toolMeta?.name || log.toolId,
+            iconName: toolMeta?.icon || 'Terminal',
+            reason: `Dispatched contextual operation pipeline from agent ${log.agentId || 'System'}`,
+            durationMs: log.durationMs || 12,
+            status: log.status,
+            input: log.input,
+            output: log.output,
+          };
+        });
 
         setTimeout(() => {
-          setMemoryCount(mStats.totalCount);
-          setDocumentCount(rStats.totalDocuments);
           setRecentMemories(listMems);
-          setRecentDocuments(listDocs);
+          setExecMetrics(metrics);
+          setDashboardTimeline(timelineSteps);
         }, 0);
       } catch (err) {
         console.error('Failed to load dashboard metrics from local storage:', err);
@@ -76,7 +110,7 @@ export default function DashboardPage() {
   const defaultProviderConfig = configs?.[activeProviderId];
   const defaultModelName = defaultProviderConfig?.selectedModelId || 'Não selecionado';
 
-  // Recent agents (sorted by last updated, limit to 3)
+  // Recent agents
   const recentAgents = [...agents]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 3);
@@ -107,7 +141,7 @@ export default function DashboardPage() {
       breadcrumbs={[{ label: 'Studio' }, { label: 'Dashboard' }]}
       onCreateAgentClick={() => setIsCreateModalOpen(true)}
     >
-      <div className="space-y-8 max-w-7xl mx-auto">
+      <div className="space-y-8 max-w-7xl mx-auto text-left">
         {/* Intro Banner */}
         <div className="border-border bg-gradient-to-tr from-primary/10 via-transparent to-accent/5 rounded-2xl border p-6 md:p-8 shadow-xs select-none">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -182,99 +216,99 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Part 12 — Sprint 5 Dashboard KPI Cards Integration */}
+        {/* Cognitive & Tools Engine KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Card 1: Stored Memories */}
+          {/* Total Executions */}
           <Card className="p-1">
             <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
               <div className="space-y-0.5 text-left">
                 <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                  Memórias Salvas
+                  Total de Execuções
                 </CardTitle>
                 <CardDescription className="text-text-muted text-[10px]">
-                  Fatos locais no Memory Store
+                  Ferramentas acionadas hoje
                 </CardDescription>
               </div>
-              <div className="bg-indigo-500/10 text-indigo-500 p-2 rounded-xl border border-indigo-500/10">
-                <Database className="h-4.5 w-4.5" />
+              <div className="bg-primary/10 text-primary p-2 rounded-xl border border-primary/10">
+                <Wrench className="h-4.5 w-4.5" />
               </div>
             </CardHeader>
             <CardContent className="pt-1 select-none text-left">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-text-primary text-2xl font-extrabold">{memoryCount}</span>
-                <span className="text-text-muted text-xs">registros</span>
+                <span className="text-text-primary text-2xl font-extrabold">{execMetrics.totalExecutions}</span>
+                <span className="text-text-muted text-xs">rodadas</span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Card 2: Indexed Documents */}
+          {/* Success Executions */}
           <Card className="p-1">
             <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
               <div className="space-y-0.5 text-left">
                 <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                  Docs Indexados
+                  Execuções de Sucesso
                 </CardTitle>
                 <CardDescription className="text-text-muted text-[10px]">
-                  Documentos no RAG Engine
+                  Concluídas sem erros
                 </CardDescription>
               </div>
-              <div className="bg-emerald-500/10 text-emerald-500 p-2 rounded-xl border border-emerald-500/10">
-                <BookOpen className="h-4.5 w-4.5" />
+              <div className="bg-success/10 text-success p-2 rounded-xl border border-success/10">
+                <CheckCircle className="h-4.5 w-4.5" />
               </div>
             </CardHeader>
             <CardContent className="pt-1 select-none text-left">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-text-primary text-2xl font-extrabold">{documentCount}</span>
-                <span className="text-text-muted text-xs">arquivos</span>
+                <span className="text-success text-2xl font-extrabold">{execMetrics.successfulExecutions}</span>
+                <span className="text-text-muted text-xs">rodadas</span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Card 3: Memory Health */}
+          {/* Average Latency */}
           <Card className="p-1">
             <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
               <div className="space-y-0.5 text-left">
                 <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                  Saúde do Contexto
+                  Latência Média
                 </CardTitle>
                 <CardDescription className="text-text-muted text-[10px]">
-                  Estabilidade cognitiva local
-                </CardDescription>
-              </div>
-              <div className="bg-rose-500/10 text-rose-500 p-2 rounded-xl border border-rose-500/10">
-                <Heart className="h-4.5 w-4.5" />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-1 select-none text-left">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-rose-500 text-2xl font-extrabold">100%</span>
-                <span className="text-text-muted text-xs">estável</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Card 4: Knowledge Base Link / Status */}
-          <Card className="p-1">
-            <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-              <div className="space-y-0.5 text-left">
-                <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                  Base de Conhecimento
-                </CardTitle>
-                <CardDescription className="text-text-muted text-[10px]">
-                  RAG pipeline pronto
+                  Tempo médio de resposta
                 </CardDescription>
               </div>
               <div className="bg-amber-500/10 text-amber-500 p-2 rounded-xl border border-amber-500/10">
-                <Sparkles className="h-4.5 w-4.5" />
+                <Zap className="h-4.5 w-4.5" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-1 select-none text-left">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-text-primary text-2xl font-extrabold">{execMetrics.averageLatencyMs}</span>
+                <span className="text-text-muted text-xs">ms</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Most Used Tool */}
+          <Card className="p-1">
+            <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
+              <div className="space-y-0.5 text-left">
+                <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
+                  Ferramenta Mais Usada
+                </CardTitle>
+                <CardDescription className="text-text-muted text-[10px]">
+                  Maior taxa de engajamento
+                </CardDescription>
+              </div>
+              <div className="bg-indigo-500/10 text-indigo-500 p-2 rounded-xl border border-indigo-500/10">
+                <Cpu className="h-4.5 w-4.5" />
               </div>
             </CardHeader>
             <CardContent className="pt-1 select-none text-left flex items-center justify-between">
-              <span className="text-text-primary text-xs font-bold bg-neutral-light/50 px-2 py-0.5 rounded-sm">
-                Conectado
+              <span className="text-text-primary text-xs font-extrabold bg-neutral-light/50 px-2 py-0.5 rounded-sm truncate max-w-[120px]">
+                {execMetrics.mostUsedToolId.replace('_tool', '').toUpperCase()}
               </span>
-              <Link href="/knowledge" passHref legacyBehavior>
-                <a className="text-primary hover:text-primary-hover text-[11px] font-bold inline-flex items-center gap-0.5">
-                  Ver Base
+              <Link href="/tools" passHref legacyBehavior>
+                <a className="text-primary hover:text-primary-hover text-[11px] font-bold inline-flex items-center gap-0.5 shrink-0">
+                  Ver todas
                   <ChevronRight className="h-3 w-3" />
                 </a>
               </Link>
@@ -291,7 +325,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between px-1">
                 <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2">
                   <Clock className="h-4.5 w-4.5 text-primary animate-pulse" />
-                  Agentes Atualizados Recentemente
+                  Agentes Ativos Atualizados Recentemente
                 </h3>
                 <Link href="/agents" passHref legacyBehavior>
                   <a className="text-primary hover:text-primary-hover text-xs font-semibold inline-flex items-center gap-0.5">
@@ -357,53 +391,17 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Part 12 — Recent Documents List Card */}
-            <div className="space-y-3.5 pt-2">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2">
-                  <FileText className="h-4.5 w-4.5 text-accent" />
-                  Documentos de Conhecimento Indexados
-                </h3>
-                <Link href="/knowledge" passHref legacyBehavior>
-                  <a className="text-primary hover:text-primary-hover text-xs font-semibold inline-flex items-center gap-0.5">
-                    Ver Base RAG
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </a>
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {recentDocuments.map((doc) => (
-                  <Card key={doc.id} className="p-4 flex flex-col justify-between h-32 hover:border-primary/20 transition-all select-none">
-                    <div className="space-y-1 text-left">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-primary font-mono uppercase">
-                          {doc.type}
-                        </span>
-                        <span className="text-[10px] text-text-muted">{doc.chunksCount} chunks</span>
-                      </div>
-                      <h4 className="text-text-primary text-xs font-bold truncate tracking-tight pt-1">
-                        {doc.name}
-                      </h4>
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] text-text-muted pt-2 border-t border-border/40">
-                      <span>{formatDate(doc.createdAt).split(' ')[0]}</span>
-                      <Link href="/knowledge" passHref legacyBehavior>
-                        <a className="text-primary font-semibold">Preview</a>
-                      </Link>
-                    </div>
-                  </Card>
-                ))}
-                {recentDocuments.length === 0 && (
-                  <div className="col-span-3 border border-dashed border-border p-8 text-center text-text-muted rounded-xl bg-card">
-                    Nenhum documento indexado na base.
-                  </div>
-                )}
-              </div>
+            {/* Execution Timeline Widget */}
+            <div className="space-y-3.5 pt-2 text-left">
+              <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2 px-1">
+                <Activity className="h-4.5 w-4.5 text-primary animate-pulse" />
+                Linha de Tempo de Execuções Recentes
+              </h3>
+              <ExecutionTimeline steps={dashboardTimeline} />
             </div>
           </div>
 
-          {/* Right Column: Part 12 — Recent Memories list & Quick Actions */}
+          {/* Right Column: Recent Memories list & Quick Actions */}
           <div className="space-y-6">
             {/* Recent Memories column list */}
             <div className="space-y-3.5">
@@ -449,7 +447,7 @@ export default function DashboardPage() {
                 Ações Rápidas
               </h3>
 
-              <Card className="p-4 space-y-3.5">
+              <Card className="p-4 space-y-3.5 text-left">
                 <Button
                   variant="primary"
                   size="md"
@@ -463,29 +461,29 @@ export default function DashboardPage() {
                   <ChevronRight className="h-4 w-4 opacity-70" />
                 </Button>
 
-                <Link href="/memory" passHref legacyBehavior>
+                <Link href="/tools" passHref legacyBehavior>
                   <Button
                     variant="secondary"
                     size="md"
                     className="w-full flex items-center justify-between"
                   >
                     <span className="flex items-center gap-2">
-                      <Database className="h-4 w-4 text-indigo-500" />
-                      Memória Cognitiva
+                      <Wrench className="h-4 w-4 text-primary" />
+                      Gerenciador de Ferramentas
                     </span>
                     <ChevronRight className="h-4 w-4 opacity-70" />
                   </Button>
                 </Link>
 
-                <Link href="/knowledge" passHref legacyBehavior>
+                <Link href="/memory" passHref legacyBehavior>
                   <Button
                     variant="outline"
                     size="md"
                     className="w-full flex items-center justify-between border-border"
                   >
                     <span className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-emerald-500" />
-                      Conhecimento RAG
+                      <Database className="h-4 w-4 text-indigo-500" />
+                      Memória Cognitiva
                     </span>
                     <ChevronRight className="h-4 w-4 opacity-70" />
                   </Button>
