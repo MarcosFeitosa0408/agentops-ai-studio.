@@ -13,6 +13,7 @@ import {
   Wrench,
   CheckCircle,
   Zap,
+  GitBranch,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,8 +32,11 @@ import { useIsMounted } from '@/hooks/useIsMounted';
 // Local systems managers
 import { MemoryStorage } from '../../lib/memory/storage/MemoryStorage';
 import { ToolExecutionService } from '../../lib/tools/services/ToolExecutionService';
+import { ExecutionMonitor } from '../../lib/workflows/services/ExecutionMonitor';
+import { WorkflowLogService } from '../../lib/workflows/services/WorkflowLogService';
 import { MemoryItem } from '../../lib/memory/types';
 import { ToolStatus, ToolResult } from '../../lib/tools/types';
+import { WorkflowStatistics, WorkflowLog } from '../../lib/workflows/types';
 import { ExecutionTimeline } from '../../components/tools/TimelineComponents';
 
 interface TimelineStepData {
@@ -55,7 +59,7 @@ export default function DashboardPage() {
   // States for Cognitive / RAG / Executions parameters
   const [recentMemories, setRecentMemories] = useState<MemoryItem[]>([]);
 
-  // Execution Metrics state
+  // Tool Execution Metrics state
   const [execMetrics, setExecMetrics] = useState({
     totalExecutions: 0,
     successfulExecutions: 0,
@@ -65,12 +69,18 @@ export default function DashboardPage() {
   });
   const [dashboardTimeline, setDashboardTimeline] = useState<TimelineStepData[]>([]);
 
+  // Workflow Metrics state (Sprint 7 Part 9)
+  const [wfStats, setWfStats] = useState<WorkflowStatistics | null>(null);
+  const [recentWfLogs, setRecentWfLogs] = useState<WorkflowLog[]>([]);
+
   // Load Cognitive / RAG / Tools Executions safely
   useEffect(() => {
     if (isMounted) {
       try {
         const mStorage = MemoryStorage.getInstance();
         const execService = ToolExecutionService.getInstance();
+        const monitorService = ExecutionMonitor.getInstance();
+        const wfLogService = WorkflowLogService.getInstance();
 
         const listMems = mStorage.list().slice(0, 3);
 
@@ -93,10 +103,15 @@ export default function DashboardPage() {
           };
         });
 
+        const computedWfStats = monitorService.getStatistics();
+        const listWfLogs = wfLogService.list().slice(0, 3);
+
         setTimeout(() => {
           setRecentMemories(listMems);
           setExecMetrics(metrics);
           setDashboardTimeline(timelineSteps);
+          setWfStats(computedWfStats);
+          setRecentWfLogs(listWfLogs);
         }, 0);
       } catch (err) {
         console.error('Failed to load dashboard metrics from local storage:', err);
@@ -213,6 +228,111 @@ export default function DashboardPage() {
                 Abrir Playground de Chat
               </Button>
             </Link>
+          </Card>
+        </div>
+
+        {/* Sprint 7 Part 9: Integrated Workflow automation stats cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <Card className="p-1">
+            <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
+              <div className="space-y-0.5">
+                <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
+                  Workflows Ativos
+                </CardTitle>
+                <CardDescription className="text-text-muted text-[10px]">
+                  Processando em segundo plano
+                </CardDescription>
+              </div>
+              <div className="bg-success/10 text-success p-2 rounded-xl">
+                <GitBranch className="h-4.5 w-4.5" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-1 select-none">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-text-primary text-2xl font-extrabold">
+                  {wfStats?.activeWorkflows || 0}
+                </span>
+                <span className="text-text-muted text-xs">ativos</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="p-1">
+            <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
+              <div className="space-y-0.5">
+                <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
+                  Rodadas de Workflow
+                </CardTitle>
+                <CardDescription className="text-text-muted text-[10px]">
+                  Execuções concluídas
+                </CardDescription>
+              </div>
+              <div className="bg-indigo-500/10 text-indigo-500 p-2 rounded-xl">
+                <Activity className="h-4.5 w-4.5" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-1 select-none">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-text-primary text-2xl font-extrabold">
+                  {wfStats?.totalExecutions || 0}
+                </span>
+                <span className="text-text-muted text-xs">rodadas</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="p-1">
+            <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
+              <div className="space-y-0.5">
+                <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
+                  Taxa de Sucesso (WF)
+                </CardTitle>
+                <CardDescription className="text-text-muted text-[10px]">
+                  Assertividade das regras
+                </CardDescription>
+              </div>
+              <div className="bg-success/10 text-success p-2 rounded-xl">
+                <CheckCircle className="h-4.5 w-4.5" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-1 select-none">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-success text-2xl font-extrabold">
+                  {wfStats?.successRate || 100}%
+                </span>
+                <span className="text-text-muted text-xs">sucesso</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="p-1">
+            <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
+              <div className="space-y-0.5">
+                <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
+                  Duração Média (WF)
+                </CardTitle>
+                <CardDescription className="text-text-muted text-[10px]">
+                  Latência ponta-a-ponta
+                </CardDescription>
+              </div>
+              <div className="bg-amber-500/10 text-amber-500 p-2 rounded-xl">
+                <Clock className="h-4.5 w-4.5" />
+              </div>
+            </CardHeader>
+            <CardContent className="pt-1 select-none flex items-center justify-between">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-text-primary text-2xl font-extrabold">
+                  {wfStats?.averageDurationMs || 0}
+                </span>
+                <span className="text-text-muted text-xs">ms</span>
+              </div>
+              <Link href="/workflows" passHref legacyBehavior>
+                <a className="text-primary hover:text-primary-hover text-[11px] font-bold inline-flex items-center gap-0.5">
+                  Ver Canvas
+                  <ChevronRight className="h-3 w-3" />
+                </a>
+              </Link>
+            </CardContent>
           </Card>
         </div>
 
@@ -395,7 +515,7 @@ export default function DashboardPage() {
             <div className="space-y-3.5 pt-2 text-left">
               <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2 px-1">
                 <Activity className="h-4.5 w-4.5 text-primary animate-pulse" />
-                Linha de Tempo de Execuções Recentes
+                Linha de Tempo de Execuções Recentes (Ferramentas)
               </h3>
               <ExecutionTimeline steps={dashboardTimeline} />
             </div>
@@ -403,6 +523,40 @@ export default function DashboardPage() {
 
           {/* Right Column: Recent Memories list & Quick Actions */}
           <div className="space-y-6">
+            {/* Sprint 7 Workflow activity feed */}
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-1.5">
+                  <Activity className="h-4.5 w-4.5 text-success animate-pulse" />
+                  Atividade Recente de Workflows
+                </h3>
+              </div>
+
+              <Card className="p-4 space-y-4">
+                {recentWfLogs.map((log) => (
+                  <div key={log.id} className="text-left space-y-1 pb-3 last:pb-0 border-b last:border-0 border-border/30">
+                    <div className="flex items-center justify-between text-[9px] font-bold">
+                      <span className="bg-success/10 text-success px-1.5 py-0.2 rounded-xs uppercase">
+                        {log.status}
+                      </span>
+                      <span className="text-text-muted">{formatDate(log.timestamp).split(' ')[0]}</span>
+                    </div>
+                    <p className="text-text-primary text-xs font-semibold leading-normal">
+                      Execução {log.executionId} ({log.durationMs}ms)
+                    </p>
+                    <p className="text-[10px] text-text-muted">
+                      Nós visitados: {log.executionPath.join(' → ')}
+                    </p>
+                  </div>
+                ))}
+                {recentWfLogs.length === 0 && (
+                  <p className="text-text-muted text-xs text-center py-4">
+                    Nenhum log de fluxo registrado.
+                  </p>
+                )}
+              </Card>
+            </div>
+
             {/* Recent Memories column list */}
             <div className="space-y-3.5">
               <div className="flex items-center justify-between px-1">
@@ -461,29 +615,29 @@ export default function DashboardPage() {
                   <ChevronRight className="h-4 w-4 opacity-70" />
                 </Button>
 
-                <Link href="/tools" passHref legacyBehavior>
+                <Link href="/workflows" passHref legacyBehavior>
                   <Button
                     variant="secondary"
                     size="md"
                     className="w-full flex items-center justify-between"
                   >
                     <span className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-primary" />
-                      Gerenciador de Ferramentas
+                      <GitBranch className="h-4 w-4 text-success" />
+                      Visual Workflow Canvas
                     </span>
                     <ChevronRight className="h-4 w-4 opacity-70" />
                   </Button>
                 </Link>
 
-                <Link href="/memory" passHref legacyBehavior>
+                <Link href="/tools" passHref legacyBehavior>
                   <Button
                     variant="outline"
                     size="md"
                     className="w-full flex items-center justify-between border-border"
                   >
                     <span className="flex items-center gap-2">
-                      <Database className="h-4 w-4 text-indigo-500" />
-                      Memória Cognitiva
+                      <Wrench className="h-4 w-4 text-primary" />
+                      Gerenciador de Ferramentas
                     </span>
                     <ChevronRight className="h-4 w-4 opacity-70" />
                   </Button>
