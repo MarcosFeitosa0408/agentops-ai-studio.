@@ -33,6 +33,7 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
     │   ├── memory/         # Reusable Memory UI components (cards, timelines, filters)
     │   ├── rag/            # Reusable RAG UI components (index status, uploaders, previewers)
     │   ├── tools/          # Reusable timeline, step and metrics tool components
+    │   ├── workflows/      # Reusable visual canvases, inspectors, mini-maps and toolbars
     │   └── ui/             # Reusable atomic UI elements (Buttons, Inputs, etc.)
     ├── context/            # React Context state providers (ThemeContext, AgentContext)
     ├── hooks/              # Custom React Hooks (useIsMounted)
@@ -40,7 +41,8 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
     │   ├── ai/             # Cognitive AI Gateway layer (providers, services, types)
     │   ├── memory/         # Local Memory System (types, storage, service, hooks, utils)
     │   ├── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
-    │   └── tools/          # Tools Engine, Execution Pipeline, Agent Executor & Orchestrator
+    │   ├── tools/          # Tools Engine, Execution Pipeline, Agent Executor & Orchestrator
+    │   └── workflows/      # Workflow Engine, Runner, Logs, Triggers and Execution Monitor
     └── types/              # Global TypeScript interfaces and definitions
 ```
 
@@ -68,40 +70,39 @@ Sprint 5 establishes the comprehensive architectural foundation for context rete
 
 Sprint 6 transforms AgentOps AI Studio from a conversational interface into an executable multitool platform. It allows specialized AI agents to plan and call programmatic tools, aggregate data, and cooperate with each other under unified orchestration schemas.
 
-### 1. Architectural Highlights (`src/lib/tools/`)
+---
 
-We designed a fully decouplable, strongly-typed **Tools Engine** containing clean interfaces and services:
+## Sprint 7 — Workflow Automation Engine & Multi-Agent Collaboration
 
-- **Type Domain (`src/lib/tools/types/index.ts`):** Defines standard schema attributes for `Tool`, `ToolCategory`, `ToolParameter`, `ToolExecution`, `ToolResult`, `ToolStatus`, `ToolCapability`, `ToolPermission`, and `ExecutionContext`.
-- **Base Tool Interface (`src/lib/tools/base/BaseTool.ts`):** Defines abstract class `BaseTool` with built-in validator parsing and health status checks.
-- **Tool Registry (`src/lib/tools/registry/ToolRegistry.ts`):** Handles register/remove/find, tracking of execution statistics, and automatic default tool registrations.
-- **Tool Execution Service (`src/lib/tools/services/ToolExecutionService.ts`):** orchestrates run tasks, handles user role permission mapping, error captures, latency metrics, and supports configurable execution retries.
-- **Execution Log Service (`src/lib/tools/services/ExecutionLogService.ts`):** Hydration-safe logging component that persists run outcomes in localStorage.
+Sprint 7 delivers the core enterprise capabilities for creating, visual mapping, running, and auditing multi-step automation diagrams.
 
-### 2. Mock Tool Connectors (`src/lib/tools/implementations/`)
+### 1. Workflow Domain & Engine (`src/lib/workflows/`)
 
-We implemented 10 programmatically stable mock tools containing simulated execution runtimes:
+- **Domain Model (`types/index.ts`):** Establishes strong typing schemas for `Workflow`, `WorkflowNode`, `WorkflowEdge`, `WorkflowExecution`, `WorkflowStatus`, and conditions.
+- **Workflow Runner (`runner/WorkflowRunner.ts`):** Processes node states (agents, delay waits, tool operations) sequentially, resolving branches, handling timeouts, and caching output parameters in state variables.
+- **Workflow Engine (`engine/WorkflowEngine.ts`):** Coordinates creation, deletion, duplication, saving, execution listener registers, and hydrates workflow templates securely from `localStorage`.
+- **Trigger Service (`services/TriggerService.ts`):** Exposes manual, cron scheduling, webhook, and DB events.
+- **Execution Monitor (`services/ExecutionMonitor.ts`):** Aggregates KPIs like success rates, latency averages, and ranks active tools and workflows.
+- **Workflow Log Service (`services/WorkflowLogService.ts`):** Safely persists completed run path logs and metadata records in local storage.
 
-1. **Python Sandbox Executor:** Simulates data frame statistical groupings.
-2. **SQL Query Analyzer:** Translates inputs into relational tabular queries.
-3. **Excel Workbook Integrator:** Recalculates formula metrics on spreadsheets.
-4. **CSV Parser:** Slices and filters structured CSV data arrays.
-5. **REST API Dispatcher:** Delivers mock GET/POST REST communications.
-6. **High Precision Calculator:** Performs actual mathematical expressions evaluation.
-7. **JSON Syntactical Structurer:** Minifies or prettifies JSON input variables.
-8. **Cognitive Memory Retriever:** Interfaces directly with `MemoryService` context.
-9. **RAG Document Locator:** Scans and matches knowledge chunks via `RetrievalService`.
-10. **Google Web Search:** Simulates real-time search queries lookup.
+### 2. Multi-Agent Delegation & Shared Context
 
-### 3. Agent Executor & Multi-Agent Orchestrator
+We upgraded the central `AgentOrchestrator` to support agent-to-agent task delegation. When an agent cannot fulfill a requirement alone, it can instantiate a downstream sub-agent:
 
-- **Agent Executor (`src/lib/tools/executor/AgentExecutor.ts`):** Combines the complete execution lifecycle. When a user sends a request, the executor:
-  1. Queries relevant contextual facts from local Memory.
-  2. Pulls knowledge references from local RAG documents.
-  3. Forms a step plan heuristic (rule-based) of what tools are required.
-  4. Runs the planned tools through the execution pipeline.
-  5. Formulates and pipes the final consolidated context block through `AIService` to generate the final synthetic output.
-- **Multi-Agent Orchestrator (`src/lib/tools/orchestrator/AgentOrchestrator.ts`):** Supports executing agents sequentially or in parallel, allowing downstream sharing of output context and logs aggregation.
+- Task ownership is logged.
+- Context parameters are shared.
+- Memory and RAG results can be compiled in shared caches.
+- Dependencies are tracked sequentially in execution timelines.
+
+### 3. Custom Visual Workflow Canvas & Inspector (`src/components/workflows/`)
+
+We designed a fully responsive custom **Visual Canvas** using pure CSS Grid and SVG marker paths to avoid version peer conflicts. It supports:
+
+- **Canvas Rendering:** Dynamic nodes positioning and custom bezier path connections.
+- **Element Sidebar:** Drag-style toolbox for inserting new Agent, Tool, Delay or Branch nodes.
+- **Workflow Inspector:** Dedicated parameters editor supporting tool inputs, conditional comparisons, and timing parameters.
+- **Minimap Visualization:** Responsive small-scale map representing node coordinates.
+- **Execution Timeline:** Real-time run tracer with glowing active states.
 
 ---
 
