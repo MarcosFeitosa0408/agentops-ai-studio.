@@ -16,15 +16,31 @@ import {
   Database,
   BookOpen,
   Wrench,
+  GitBranch,
+  Folder,
+  ShieldAlert,
 } from 'lucide-react';
 import { Agent } from '@/types/agent';
 import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Input';
+import { useAuth } from '@/context/AuthContext';
 
 interface WorkspaceSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  activePath: 'dashboard' | 'agents' | 'memory' | 'knowledge' | 'playground' | 'settings' | 'tools';
+  activePath:
+    | 'dashboard'
+    | 'agents'
+    | 'memory'
+    | 'knowledge'
+    | 'playground'
+    | 'settings'
+    | 'tools'
+    | 'workflows'
+    | 'workspaces'
+    | 'security'
+    | 'profile'
+    | 'admin';
   agents?: Agent[];
   selectedAgentId?: string;
   onAgentSelect?: (agent: Agent) => void;
@@ -41,6 +57,9 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
   onCreateAgentClick,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const { currentUser } = useAuth();
+
+  const isAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin';
 
   const filteredAgents = agents.filter(
     (a) =>
@@ -68,6 +87,12 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       active: activePath === 'playground',
     },
     {
+      label: 'Workflows',
+      icon: GitBranch,
+      href: '/workflows',
+      active: activePath === 'workflows',
+    },
+    {
       label: 'Ferramentas',
       icon: Wrench,
       href: '/tools',
@@ -86,10 +111,27 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       active: activePath === 'knowledge',
     },
     {
-      label: 'Configurações',
+      label: 'Configurações Core',
       icon: Settings,
       href: '/settings',
       active: activePath === 'settings',
+    },
+  ];
+
+  const enterpriseNavItems = [
+    {
+      label: 'Painel Admin (IT)',
+      icon: ShieldAlert,
+      href: '/admin',
+      active: activePath === 'admin',
+      visible: isAdmin,
+    },
+    {
+      label: 'Workspaces',
+      icon: Folder,
+      href: '/workspaces',
+      active: activePath === 'workspaces',
+      visible: true,
     },
   ];
 
@@ -125,7 +167,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
           <div className="from-primary to-accent flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr text-white shadow-md">
             <Shield className="h-5 w-5" />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col text-left">
             <span className="text-text-primary text-sm font-bold tracking-tight">
               AgentOps Studio
             </span>
@@ -138,7 +180,7 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
         {/* Main Navigation */}
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
           <div className="space-y-1">
-            <p className="text-text-muted px-3 text-[10px] font-semibold tracking-wider uppercase">
+            <p className="text-text-muted px-3 text-[10px] text-left font-semibold tracking-wider uppercase">
               Menu Principal
             </p>
             {mainNavItems.map((item) => {
@@ -158,6 +200,32 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
                 </Link>
               );
             })}
+          </div>
+
+          {/* Governance & Enterprise Navigation */}
+          <div className="space-y-1 pt-2">
+            <p className="text-text-muted px-3 text-[10px] text-left font-semibold tracking-wider uppercase">
+              Governança & Enterprise
+            </p>
+            {enterpriseNavItems
+              .filter((item) => item.visible)
+              .map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.label} href={item.href} passHref legacyBehavior>
+                    <a
+                      className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none ${
+                        item.active
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-text-secondary hover:bg-neutral-light hover:text-text-primary'
+                      }`}
+                    >
+                      <Icon className="h-4.5 w-4.5 shrink-0" />
+                      <span>{item.label}</span>
+                    </a>
+                  </Link>
+                );
+              })}
           </div>
 
           {/* Quick Agent Selection (only relevant if we have agents list supplied) */}

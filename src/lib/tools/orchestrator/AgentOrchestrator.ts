@@ -13,14 +13,26 @@ export interface OrchestrationResult {
     response: string;
     timestamp: string;
     latencyMs: number;
+    delegatedTo?: string; // delegation tracking
   }[];
   durationMs: number;
+}
+
+export interface DelegationStep {
+  fromAgentId: string;
+  fromAgentName: string;
+  toAgentId: string;
+  toAgentName: string;
+  task: string;
+  response?: string;
+  timestamp: string;
 }
 
 export class AgentOrchestrator {
   private static instance: AgentOrchestrator;
   private executor: AgentExecutor;
   private activeExecutionsHistory: OrchestrationResult['history'] = [];
+  private delegationLogs: DelegationStep[] = [];
 
   private constructor() {
     this.executor = AgentExecutor.getInstance();
@@ -31,6 +43,48 @@ export class AgentOrchestrator {
       AgentOrchestrator.instance = new AgentOrchestrator();
     }
     return AgentOrchestrator.instance;
+  }
+
+  /**
+   * Safe Agent-to-Agent Delegation.
+   * Agent A delegates a specific task to Agent B, retaining shared context.
+   */
+  public async delegateTask(
+    fromAgent: Agent,
+    toAgent: Agent,
+    task: string,
+    context?: ExecutionContext,
+  ): Promise<AgentExecutorResult> {
+    console.log(`[AgentOrchestrator] Delegation started. "${fromAgent.name}" -> "${toAgent.name}". Task: "${task}"`);
+
+    const logEntry: DelegationStep = {
+      fromAgentId: fromAgent.id,
+      fromAgentName: fromAgent.name,
+      toAgentId: toAgent.id,
+      toAgentName: toAgent.name,
+      task,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.delegationLogs.push(logEntry);
+
+    // Run the execution on the target agent using shared context settings
+    const runResult = await this.executor.execute(toAgent, task, context);
+
+    // Update log outcome
+    logEntry.response = runResult.agentResponse;
+
+    this.activeExecutionsHistory.push({
+      agentId: fromAgent.id,
+      agentName: fromAgent.name,
+      request: `Delegated task to ${toAgent.name}: "${task}"`,
+      response: runResult.agentResponse,
+      timestamp: new Date().toISOString(),
+      latencyMs: runResult.usage.latencyMs,
+      delegatedTo: toAgent.name,
+    });
+
+    return runResult;
   }
 
   /**
@@ -164,8 +218,13 @@ export class AgentOrchestrator {
     return this.activeExecutionsHistory;
   }
 
+  public getDelegationLogs(): DelegationStep[] {
+    return this.delegationLogs;
+  }
+
   public clearHistory(): void {
     this.activeExecutionsHistory = [];
+    this.delegationLogs = [];
   }
 }
 export default AgentOrchestrator;

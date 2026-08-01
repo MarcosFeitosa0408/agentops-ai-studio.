@@ -7,15 +7,17 @@ import {
   Activity,
   Sliders,
   Cpu,
-  Settings,
-  HelpCircle,
   X,
   Sparkles,
   Database,
   BookOpen,
   Wrench,
+  GitBranch,
+  Folder,
+  ShieldAlert,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
+import { useAuth } from '@/context/AuthContext';
 
 export interface SidebarProps {
   isOpen: boolean;
@@ -30,6 +32,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeItem = 'Showcase',
   onItemSelect,
 }) => {
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'Super Admin' || currentUser?.role === 'Admin';
+
   const menuItems = [
     { id: 'Showcase', label: 'Design Showcase', icon: LayoutDashboard },
     { id: 'Tokens', label: 'Design Tokens', icon: Sliders },
@@ -38,11 +43,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'Overlays', label: 'Overlays & Dialogs', icon: Boxes },
     { id: 'Status', label: 'Status & Indicators', icon: Activity },
     { id: 'Layouts', label: 'Layout Showcase', icon: Database },
-  ];
-
-  const secondaryItems = [
-    { id: 'Settings', label: 'Settings', icon: Settings },
-    { id: 'Help', label: 'Help & Docs', icon: HelpCircle },
   ];
 
   const handleSelect = (id: string) => {
@@ -74,9 +74,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation lists */}
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
-          {/* New Sprint 3/4/6 functional section */}
+          {/* New Sprint 3/4/6/7 functional section */}
           <div className="space-y-1">
-            <p className="text-primary px-3 text-[10px] font-bold tracking-wider uppercase">
+            <p className="text-primary px-3 text-[10px] text-left font-bold tracking-wider uppercase">
               AgentOps AI Studio
             </p>
             <a
@@ -101,6 +101,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="font-semibold text-text-primary">Playground</span>
             </a>
             <a
+              href="/workflows"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+            >
+              <GitBranch className="h-4.5 w-4.5 shrink-0 text-success" />
+              <span className="font-semibold text-text-primary">Workflows</span>
+            </a>
+            <a
               href="/tools"
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
             >
@@ -121,44 +128,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <BookOpen className="h-4.5 w-4.5 shrink-0 text-emerald-500" />
               <span className="font-semibold text-text-primary">Knowledge Base</span>
             </a>
+          </div>
+
+          {/* Governance section */}
+          <div className="space-y-1">
+            <p className="text-primary px-3 text-[10px] text-left font-bold tracking-wider uppercase">
+              Governança
+            </p>
+            {isAdmin && (
+              <a
+                href="/admin"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+              >
+                <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-red-500" />
+                <span className="font-semibold text-text-primary">Painel Admin (IT)</span>
+              </a>
+            )}
             <a
-              href="/settings"
+              href="/workspaces"
               className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
             >
-              <Settings className="h-4.5 w-4.5 shrink-0 text-secondary" />
-              <span className="font-semibold text-text-primary">Settings</span>
+              <Folder className="h-4.5 w-4.5 shrink-0 text-violet-500" />
+              <span className="font-semibold text-text-primary">Workspaces</span>
             </a>
           </div>
 
           <div className="space-y-1">
-            <p className="text-text-muted px-3 text-[10px] font-semibold tracking-wider uppercase">
+            <p className="text-text-muted px-3 text-[10px] text-left font-semibold tracking-wider uppercase">
               Core Components
             </p>
             {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.id === activeItem;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleSelect(item.id)}
-                  className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-text-secondary hover:bg-neutral-light hover:text-text-primary'
-                  } `}
-                >
-                  <Icon className="h-4.5 w-4.5 shrink-0" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-text-muted px-3 text-[10px] font-semibold tracking-wider uppercase">
-              System
-            </p>
-            {secondaryItems.map((item) => {
               const Icon = item.icon;
               const isActive = item.id === activeItem;
               return (

@@ -33,14 +33,21 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
     │   ├── memory/         # Reusable Memory UI components (cards, timelines, filters)
     │   ├── rag/            # Reusable RAG UI components (index status, uploaders, previewers)
     │   ├── tools/          # Reusable timeline, step and metrics tool components
+    │   ├── workflows/      # Reusable visual canvases, inspectors, mini-maps and toolbars
     │   └── ui/             # Reusable atomic UI elements (Buttons, Inputs, etc.)
-    ├── context/            # React Context state providers (ThemeContext, AgentContext)
+    ├── context/            # React Context state providers (ThemeContext, AgentContext, AuthContext, WorkspaceContext, AuditContext, SettingsContext)
     ├── hooks/              # Custom React Hooks (useIsMounted)
     ├── lib/                # Modular utilities and third-party clients
     │   ├── ai/             # Cognitive AI Gateway layer (providers, services, types)
+    │   ├── audit/          # Compliance Audit Engine (types, service)
+    │   ├── auth/           # Decentralized Authentication & Sessions (types, service)
     │   ├── memory/         # Local Memory System (types, storage, service, hooks, utils)
     │   ├── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
-    │   └── tools/          # Tools Engine, Execution Pipeline, Agent Executor & Orchestrator
+    │   ├── rbac/           # Role-Based Access Control System (types, service)
+    │   ├── settings/       # Enterprise Settings & Policy controls (types, service)
+    │   ├── tools/          # Tools Engine, Execution Pipeline, Agent Executor & Orchestrator
+    │   ├── workflows/      # Workflow Engine, Runner, Logs, Triggers and Execution Monitor
+    │   └── workspaces/     # Workspace Management & Isolation (types, service)
     └── types/              # Global TypeScript interfaces and definitions
 ```
 
@@ -68,40 +75,38 @@ Sprint 5 establishes the comprehensive architectural foundation for context rete
 
 Sprint 6 transforms AgentOps AI Studio from a conversational interface into an executable multitool platform. It allows specialized AI agents to plan and call programmatic tools, aggregate data, and cooperate with each other under unified orchestration schemas.
 
-### 1. Architectural Highlights (`src/lib/tools/`)
+---
 
-We designed a fully decouplable, strongly-typed **Tools Engine** containing clean interfaces and services:
+## Sprint 7 — Workflow Automation Engine & Multi-Agent Collaboration
 
-- **Type Domain (`src/lib/tools/types/index.ts`):** Defines standard schema attributes for `Tool`, `ToolCategory`, `ToolParameter`, `ToolExecution`, `ToolResult`, `ToolStatus`, `ToolCapability`, `ToolPermission`, and `ExecutionContext`.
-- **Base Tool Interface (`src/lib/tools/base/BaseTool.ts`):** Defines abstract class `BaseTool` with built-in validator parsing and health status checks.
-- **Tool Registry (`src/lib/tools/registry/ToolRegistry.ts`):** Handles register/remove/find, tracking of execution statistics, and automatic default tool registrations.
-- **Tool Execution Service (`src/lib/tools/services/ToolExecutionService.ts`):** orchestrates run tasks, handles user role permission mapping, error captures, latency metrics, and supports configurable execution retries.
-- **Execution Log Service (`src/lib/tools/services/ExecutionLogService.ts`):** Hydration-safe logging component that persists run outcomes in localStorage.
+Sprint 7 delivers the core enterprise capabilities for creating, visual mapping, running, and auditing multi-step automation diagrams.
 
-### 2. Mock Tool Connectors (`src/lib/tools/implementations/`)
+---
 
-We implemented 10 programmatically stable mock tools containing simulated execution runtimes:
+## Sprint 8 — Enterprise Workspace, Authentication, RBAC & Governance
 
-1. **Python Sandbox Executor:** Simulates data frame statistical groupings.
-2. **SQL Query Analyzer:** Translates inputs into relational tabular queries.
-3. **Excel Workbook Integrator:** Recalculates formula metrics on spreadsheets.
-4. **CSV Parser:** Slices and filters structured CSV data arrays.
-5. **REST API Dispatcher:** Delivers mock GET/POST REST communications.
-6. **High Precision Calculator:** Performs actual mathematical expressions evaluation.
-7. **JSON Syntactical Structurer:** Minifies or prettifies JSON input variables.
-8. **Cognitive Memory Retriever:** Interfaces directly with `MemoryService` context.
-9. **RAG Document Locator:** Scans and matches knowledge chunks via `RetrievalService`.
-10. **Google Web Search:** Simulates real-time search queries lookup.
+Sprint 8 introduces robust enterprise governance, decentralized Single Sign-On (SSO) authentication, fine-grained Role-Based Access Control (RBAC), multi-tenant/workspace level data isolation, secure API Key storage (Vault), and compliance tamper-proof audit trails.
 
-### 3. Agent Executor & Multi-Agent Orchestrator
+### 1. Decentralized SSO Authentication & Session Management
+- **Enterprise Portal (`/login` & `/register`):** Single Sign-On style portal mapping users dynamically based on corporate profiles (`marcos@agentops.ai`, `julia@agentops.ai`, etc.).
+- **Token Rotation & Rotation Sim (`/profile`):** Simulates JWT Token renewal and key rotation with interactive timers and manual rotation triggers.
 
-- **Agent Executor (`src/lib/tools/executor/AgentExecutor.ts`):** Combines the complete execution lifecycle. When a user sends a request, the executor:
-  1. Queries relevant contextual facts from local Memory.
-  2. Pulls knowledge references from local RAG documents.
-  3. Forms a step plan heuristic (rule-based) of what tools are required.
-  4. Runs the planned tools through the execution pipeline.
-  5. Formulates and pipes the final consolidated context block through `AIService` to generate the final synthetic output.
-- **Multi-Agent Orchestrator (`src/lib/tools/orchestrator/AgentOrchestrator.ts`):** Supports executing agents sequentially or in parallel, allowing downstream sharing of output context and logs aggregation.
+### 2. Role-Based Access Control (RBAC) & Route Protection
+- **Functional Roles:** Maps system functionality to roles: `Super Admin`, `Admin`, `Manager`, `AI Developer`, `Data Analyst`, and `Viewer`.
+- **Security Helpers (`<RouteProtection>` & `<PermissionGuard>`):** Gates unauthorized page access, automatically routing visitors back to the portal and selectively hiding/showing atomic features based on user permission.
+- **RBAC Matrix (`/security`):** Dedicated matrix dashboard illustrating all system alçadas mapped visually to corporate roles.
+
+### 3. Dynamic Workspace Isolation
+- **Switchable Workspaces (`/workspaces`):** Multi-tenant isolated workspace modules (e.g. `Finance Workspace`, `Marketing Workspace`, `Engineering Workspace`) enabling teams to segment their operation.
+- **Active Workspace Selector (Topbar):** Allows switching workspaces globally, dynamically filtering agents, logs, and memories displayed on the Dashboard based on the department domain.
+
+### 4. Compliance Audit Logs (Tamper-Proof)
+- **Central Compliance Trail (`/admin`):** Fully traceable activity log capturing critical system actions (logins, workspace creations, backups, credential viewing, etc.).
+- **Tamper-Proof Verification:** Appends unique mock SHA-256 signatures to each entry, simulating strict IT compliance protocols.
+
+### 5. Secure Key Vault & Backup DR
+- **Vault API Cryptography Widget:** Simulates encrypted local storage of sensitive provider API keys using a mock AES-256 GCM vault layer.
+- **Disaster Recovery (DR) Backups:** Trigger complete system snapshots as JSON files and restore platform status through file imports.
 
 ---
 
