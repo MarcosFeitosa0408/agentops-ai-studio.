@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The raw SQL select or update statement to execute safely against the MySQL instance."
+    }
+  },
+  "required": ["query"]
+}

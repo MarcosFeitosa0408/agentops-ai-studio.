@@ -35,14 +35,19 @@ Our vision is to bridge the gap between advanced large language models (LLMs) an
     │   ├── tools/          # Reusable timeline, step and metrics tool components
     │   ├── workflows/      # Reusable visual canvases, inspectors, mini-maps and toolbars
     │   └── ui/             # Reusable atomic UI elements (Buttons, Inputs, etc.)
-    ├── context/            # React Context state providers (ThemeContext, AgentContext)
+    ├── context/            # React Context state providers (ThemeContext, AgentContext, AuthContext, WorkspaceContext, AuditContext, SettingsContext)
     ├── hooks/              # Custom React Hooks (useIsMounted)
     ├── lib/                # Modular utilities and third-party clients
     │   ├── ai/             # Cognitive AI Gateway layer (providers, services, types)
+    │   ├── audit/          # Compliance Audit Engine (types, service)
+    │   ├── auth/           # Decentralized Authentication & Sessions (types, service)
     │   ├── memory/         # Local Memory System (types, storage, service, hooks, utils)
     │   ├── rag/            # Local RAG System (types, parsers, indexers, services, hooks, utils)
+    │   ├── rbac/           # Role-Based Access Control System (types, service)
+    │   ├── settings/       # Enterprise Settings & Policy controls (types, service)
     │   ├── tools/          # Tools Engine, Execution Pipeline, Agent Executor & Orchestrator
-    │   └── workflows/      # Workflow Engine, Runner, Logs, Triggers and Execution Monitor
+    │   ├── workflows/      # Workflow Engine, Runner, Logs, Triggers and Execution Monitor
+    │   └── workspaces/     # Workspace Management & Isolation (types, service)
     └── types/              # Global TypeScript interfaces and definitions
 ```
 
@@ -76,33 +81,81 @@ Sprint 6 transforms AgentOps AI Studio from a conversational interface into an e
 
 Sprint 7 delivers the core enterprise capabilities for creating, visual mapping, running, and auditing multi-step automation diagrams.
 
-### 1. Workflow Domain & Engine (`src/lib/workflows/`)
+---
 
-- **Domain Model (`types/index.ts`):** Establishes strong typing schemas for `Workflow`, `WorkflowNode`, `WorkflowEdge`, `WorkflowExecution`, `WorkflowStatus`, and conditions.
-- **Workflow Runner (`runner/WorkflowRunner.ts`):** Processes node states (agents, delay waits, tool operations) sequentially, resolving branches, handling timeouts, and caching output parameters in state variables.
-- **Workflow Engine (`engine/WorkflowEngine.ts`):** Coordinates creation, deletion, duplication, saving, execution listener registers, and hydrates workflow templates securely from `localStorage`.
-- **Trigger Service (`services/TriggerService.ts`):** Exposes manual, cron scheduling, webhook, and DB events.
-- **Execution Monitor (`services/ExecutionMonitor.ts`):** Aggregates KPIs like success rates, latency averages, and ranks active tools and workflows.
-- **Workflow Log Service (`services/WorkflowLogService.ts`):** Safely persists completed run path logs and metadata records in local storage.
+## Sprint 8 — Enterprise Workspace, Authentication, RBAC & Governance
 
-### 2. Multi-Agent Delegation & Shared Context
+Sprint 8 introduces robust enterprise governance, decentralized Single Sign-On (SSO) authentication, fine-grained Role-Based Access Control (RBAC), multi-tenant/workspace level data isolation, secure API Key storage (Vault), and compliance tamper-proof audit trails.
 
-We upgraded the central `AgentOrchestrator` to support agent-to-agent task delegation. When an agent cannot fulfill a requirement alone, it can instantiate a downstream sub-agent:
+### 1. Decentralized SSO Authentication & Session Management
+- **Enterprise Portal (`/login` & `/register`):** Single Sign-On style portal mapping users dynamically based on corporate profiles (`marcos@agentops.ai`, `julia@agentops.ai`, etc.).
+- **Token Rotation & Rotation Sim (`/profile`):** Simulates JWT Token renewal and key rotation with interactive timers and manual rotation triggers.
 
-- Task ownership is logged.
-- Context parameters are shared.
-- Memory and RAG results can be compiled in shared caches.
-- Dependencies are tracked sequentially in execution timelines.
+### 2. Role-Based Access Control (RBAC) & Route Protection
+- **Functional Roles:** Maps system functionality to roles: `Super Admin`, `Admin`, `Manager`, `AI Developer`, `Data Analyst`, and `Viewer`.
+- **Security Helpers (`<RouteProtection>` & `<PermissionGuard>`):** Gates unauthorized page access, automatically routing visitors back to the portal and selectively hiding/showing atomic features based on user permission.
+- **RBAC Matrix (`/security`):** Dedicated matrix dashboard illustrating all system alçadas mapped visually to corporate roles.
 
-### 3. Custom Visual Workflow Canvas & Inspector (`src/components/workflows/`)
+### 3. Dynamic Workspace Isolation
+- **Switchable Workspaces (`/workspaces`):** Multi-tenant isolated workspace modules (e.g. `Finance Workspace`, `Marketing Workspace`, `Engineering Workspace`) enabling teams to segment their operation.
+- **Active Workspace Selector (Topbar):** Allows switching workspaces globally, dynamically filtering agents, logs, and memories displayed on the Dashboard based on the department domain.
 
-We designed a fully responsive custom **Visual Canvas** using pure CSS Grid and SVG marker paths to avoid version peer conflicts. It supports:
+### 4. Compliance Audit Logs (Tamper-Proof)
+- **Central Compliance Trail (`/admin`):** Fully traceable activity log capturing critical system actions (logins, workspace creations, backups, credential viewing, etc.).
+- **Tamper-Proof Verification:** Appends unique mock SHA-256 signatures to each entry, simulating strict IT compliance protocols.
 
-- **Canvas Rendering:** Dynamic nodes positioning and custom bezier path connections.
-- **Element Sidebar:** Drag-style toolbox for inserting new Agent, Tool, Delay or Branch nodes.
-- **Workflow Inspector:** Dedicated parameters editor supporting tool inputs, conditional comparisons, and timing parameters.
-- **Minimap Visualization:** Responsive small-scale map representing node coordinates.
-- **Execution Timeline:** Real-time run tracer with glowing active states.
+### 5. Secure Key Vault & Backup DR
+- **Vault API Cryptography Widget:** Simulates encrypted local storage of sensitive provider API keys using a mock AES-256 GCM vault layer.
+- **Disaster Recovery (DR) Backups:** Trigger complete system snapshots as JSON files and restore platform status through file imports.
+
+---
+
+## Sprint 9 — MCP Plugin Ecosystem (Feature Sprint)
+
+Sprint 9 delivers a comprehensive, enterprise-ready **Plugin Ecosystem** built on the **Model Context Protocol (MCP)** specification. This modular implementation connects the AgentOps AI Studio seamlessly to external systems, databases, filesystems, and collaboration suites, utilizing standard JSON-RPC 2.0 and high-security credential encryption.
+
+### 1. Model Context Protocol (MCP) Architecture Layer (`src/lib/mcp/`)
+Our MCP layer implements a complete bidirectional architecture allowing the client and server to exchange resources, tools, and prompts without major refactoring:
+- **`McpTransport` / `InMemoryMcpTransport`:** A symmetric bidirectional in-memory message bus passing JSON-RPC 2.0 requests, responses, and notifications asynchronously with delivery delays.
+- **`McpClient` / `BaseMcpClient`:** Client connection manager that initializes connections, list tools, reads resources, and coordinates call requests with 10-second pending request timeouts.
+- **`McpServer` / `BaseMcpServer`:** Core server routing requests based on standard protocols (`initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`).
+- **`McpServerRegistry`:** Registers and tracks active, running MCP virtual servers globally in the browser.
+
+### 2. Plugin SDK (`src/plugins/`)
+Each plugin exposes a clean, standardized SDK footprint:
+- **`manifest.json`:** Declares basic parameters (ID, Name, Description, Version, Author, Icon, Category, Permissions).
+- **`schema.json`:** Formats input parameters using JSON Schema constraints for client validation.
+- **`permissions.ts`:** Explicitly lists required permissions and access scopes.
+- **`plugin.ts`:** Executes operations with full metrics tracking, sandboxed parameters, and decrypted credential injection.
+
+### 3. Connector Manager & 8 Mock Connectors (`src/lib/mcp/ConnectorManager.ts`)
+The `ConnectorManager` converts active Plugins into virtual MCP Servers, linking them to MCP clients over `InMemoryMcpTransport` sessions. We built 8 standard high-fidelity connectors under `src/plugins/`:
+1. **GitHub:** Searches issues, fetches repository statistics, and simulates creating issues.
+2. **Slack:** Lists channels and posts messages to specific channels.
+3. **Gmail:** Searches email threads and sends simulated Gmail messages.
+4. **Notion:** Creates Notion database pages and queries workspace nodes.
+5. **Google Drive:** Lists folder files and simulates uploading files.
+6. **PostgreSQL:** Executes raw relational SQL queries and filters row objects.
+7. **MySQL:** Simulates MySQL schema querying, relational row retrieval, and modes.
+8. **Filesystem:** Performs simulated file reading, writing, and directory listing on volume nodes.
+
+### 4. Encrypted Secret Manager (`src/lib/mcp/SecretManager.ts`)
+Stores third-party API Keys, OAuth Tokens, and Database Credentials securely:
+- **AES-256-GCM Encryption:** Simulates high-security master-key salted symmetric decryption and encryption.
+- **Abstaction Provider:** Supports swap-ready encryption engines (e.g. AWS KMS or HashiCorp Vault) by implementing a simple interface.
+
+### 5. Dynamic Tool Discovery & SSO-RBAC Permission System
+- **Automatic Discovery:** The central `ToolRegistry` is patched to automatically fetch enabled plugins from the `PluginRegistry` and convert them into virtual executable `PluginTool` objects. Agents discover them instantly with zero manual registration.
+- **SSO Role-Based Guards:** Dynamic verification verifies if the current authenticated user's SSO role has the authority to execute write/modify operations (like sending emails, creating pages, writing files, or inserting rows). Restricted roles (like `Viewer`) are blocked from write operations and are limited to read-only calls.
+
+### 6. Marketplace & Monitoring UI (`/plugins` & Dashboard)
+- **Plugin Marketplace (`/plugins`):** Elegant marketplace to browse, install, enable, disable, update, remove, and configure connectors (opening the secure modal to encrypt and save secrets).
+- **Monitoring Analytics:** Each connector tracks detailed execution state: latency (ms), success and error counters, health status (Healthy/Degraded), and last execution timestamp.
+- **Dashboard Widgets:** Integrated MCP metrics into the main Dashboard, displaying total active connectors, average protocol latency, overall health rate, and Secret Manager status cards.
+
+### 7. Semantic Versioning (SemVer Validation)
+- **SemVer Compliance:** `PluginRegistry` parses and validates formatting for all plugin versions.
+- **Collision & Deprecation Checks:** Prevents installing duplicate plugin IDs with identical or older versions, and warns the user with deprecation badges if the version is below `1.0.0` or marked as deprecated.
 
 ---
 

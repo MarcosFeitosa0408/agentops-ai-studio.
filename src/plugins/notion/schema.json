@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Notion action: createPage or queryDatabase"
+    },
+    "databaseId": {
+      "type": "string",
+      "description": "Target database ID"
+    },
+    "pageTitle": {
+      "type": "string",
+      "description": "Title of the page to create"
+    },
+    "content": {
+      "type": "string",
+      "description": "Page body content"
+    }
+  },
+  "required": ["action"]
+}

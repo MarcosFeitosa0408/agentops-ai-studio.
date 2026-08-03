@@ -1,0 +1,10 @@
+{
+  "id": "postgresql-connector",
+  "name": "PostgreSQL Database Connection",
+  "description": "Execute queries, inspect schemas, and query relational tables in PostgreSQL.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "Database",
+  "category": "Database",
+  "permissions": ["db:query", "db:write"]
+}

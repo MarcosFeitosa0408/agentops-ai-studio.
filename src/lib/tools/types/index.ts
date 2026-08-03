@@ -10,7 +10,8 @@ export type ToolCategory =
   | 'File System (mock)'
   | 'Memory'
   | 'RAG'
-  | 'Web Search (mock)';
+  | 'Web Search (mock)'
+  | 'MCP Plugin';
 
 export interface ToolParameter {
   name: string;

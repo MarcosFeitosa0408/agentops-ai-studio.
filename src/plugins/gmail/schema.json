@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Gmail action: sendEmail or searchEmails"
+    },
+    "to": {
+      "type": "string",
+      "description": "Recipient email address for sendEmail"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Subject of the email"
+    },
+    "body": {
+      "type": "string",
+      "description": "Content of the email body"
+    },
+    "query": {
+      "type": "string",
+      "description": "Search query for searchEmails"
+    }
+  },
+  "required": ["action"]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "slack-connector",
+  "name": "Slack Integration",
+  "description": "Send alerts, post messages to channels, and query workspace activity.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "MessageSquare",
+  "category": "Collaboration",
+  "permissions": ["slack:read", "slack:write"]
+}

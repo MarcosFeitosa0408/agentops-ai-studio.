@@ -4,6 +4,10 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { ToastProvider } from '@/components/ui/Toast';
 import { AgentProvider } from '@/context/AgentContext';
 import { AIConfigProvider } from '../lib/ai/hooks/useAIConfig';
+import { AuthProvider } from '@/context/AuthContext';
+import { WorkspaceProvider } from '@/context/WorkspaceContext';
+import { AuditProvider } from '@/context/AuditContext';
+import { SettingsProvider } from '@/context/SettingsContext';
 import './globals.css';
 
 const geistSans = Geist({
@@ -37,7 +41,17 @@ export default function RootLayout({
         <ThemeProvider>
           <ToastProvider>
             <AIConfigProvider>
-              <AgentProvider>{children}</AgentProvider>
+              <AgentProvider>
+                <AuthProvider>
+                  <WorkspaceProvider>
+                    <AuditProvider>
+                      <SettingsProvider>
+                        {children}
+                      </SettingsProvider>
+                    </AuditProvider>
+                  </WorkspaceProvider>
+                </AuthProvider>
+              </AgentProvider>
             </AIConfigProvider>
           </ToastProvider>
         </ThemeProvider>

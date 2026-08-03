@@ -1,0 +1,10 @@
+{
+  "id": "google-drive-connector",
+  "name": "Google Drive Integration",
+  "description": "Upload documents, manage folders, and query stored media assets on Google Drive.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "Folder",
+  "category": "Collaboration",
+  "permissions": ["drive:read", "drive:write"]
+}

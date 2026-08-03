@@ -1,0 +1,10 @@
+{
+  "id": "filesystem-connector",
+  "name": "Filesystem Integrator",
+  "description": "Read, write, list files, and inspect workspace directories in a simulated container volume.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "Folder",
+  "category": "File System",
+  "permissions": ["file:read", "file:write"]
+}

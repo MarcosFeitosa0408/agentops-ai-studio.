@@ -1,0 +1,10 @@
+{
+  "id": "gmail-connector",
+  "name": "Gmail Integration",
+  "description": "Send emails, search messages, and retrieve inbox lists over Gmail API.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "Mail",
+  "category": "Collaboration",
+  "permissions": ["gmail:read", "gmail:write"]
+}
