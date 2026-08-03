@@ -1,0 +1,10 @@
+{
+  "id": "github-connector",
+  "name": "GitHub Integration",
+  "description": "Exposes actions to search issues, list repositories, and manage pull requests on GitHub.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "Github",
+  "category": "DevOps",
+  "permissions": ["github:read", "github:write"]
+}

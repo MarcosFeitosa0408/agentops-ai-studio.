@@ -1,0 +1,10 @@
+{
+  "id": "mysql-connector",
+  "name": "MySQL Database Connection",
+  "description": "Execute statements, query relational databases, and inspect schemas in MySQL.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "Database",
+  "category": "Database",
+  "permissions": ["db:query", "db:write"]
+}

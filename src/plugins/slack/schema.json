@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Slack action to perform: postMessage or listChannels"
+    },
+    "channel": {
+      "type": "string",
+      "description": "The target channel (e.g. '#general' or 'C12345')"
+    },
+    "message": {
+      "type": "string",
+      "description": "The text message content to send"
+    }
+  },
+  "required": ["action"]
+}

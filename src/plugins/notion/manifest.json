@@ -1,0 +1,10 @@
+{
+  "id": "notion-connector",
+  "name": "Notion Integration",
+  "description": "Create workspace documents, append notes, and query databases in Notion.",
+  "version": "1.0.0",
+  "author": "AgentOps Enterprise",
+  "icon": "BookOpen",
+  "category": "Collaboration",
+  "permissions": ["notion:read", "notion:write"]
+}

@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Filesystem action: readFile, writeFile, or listDirectory"
+    },
+    "path": {
+      "type": "string",
+      "description": "The target file or directory path (e.g. 'config.json')"
+    },
+    "content": {
+      "type": "string",
+      "description": "The file content to write (for writeFile action)"
+    }
+  },
+  "required": ["action", "path"]
+}

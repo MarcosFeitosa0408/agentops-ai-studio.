@@ -10,6 +10,8 @@ import { MemoryTool } from '../implementations/MemoryTool';
 import { RAGTool } from '../implementations/RAGTool';
 import { WebSearchTool } from '../implementations/WebSearchTool';
 import { ToolResult } from '../types';
+import { PluginRegistry } from '../../mcp/registry/PluginRegistry';
+import { PluginTool } from '../base/PluginTool';
 
 export class ToolRegistry {
   private static instance: ToolRegistry;
@@ -57,11 +59,31 @@ export class ToolRegistry {
   }
 
   public find(id: string): BaseTool | undefined {
-    return this.registry.get(id);
+    // Check built-in static tools
+    const staticTool = this.registry.get(id);
+    if (staticTool) return staticTool;
+
+    // Module 7: Check dynamic plugins
+    if (id.startsWith('plugin-')) {
+      const pluginId = id.replace('plugin-', '');
+      const reg = PluginRegistry.getInstance().get(pluginId);
+      if (reg && reg.installed && reg.enabled) {
+        return new PluginTool(reg);
+      }
+    }
+
+    return undefined;
   }
 
   public list(): BaseTool[] {
-    return Array.from(this.registry.values());
+    const staticTools = Array.from(this.registry.values());
+
+    // Module 7: Dynamically discover installed and enabled MCP Plugins
+    const pluginTools = PluginRegistry.getInstance()
+      .listEnabled()
+      .map((reg) => new PluginTool(reg));
+
+    return [...staticTools, ...pluginTools];
   }
 
   /**
@@ -74,6 +96,37 @@ export class ToolRegistry {
     }
     if (!tool.enabled) {
       throw new Error(`Tool with ID '${id}' is currently disabled.`);
+    }
+
+    // Module 8: RBAC Permission Validation
+    if (id.startsWith('plugin-')) {
+      // Determine user role securely
+      let activeRole = 'Viewer';
+      if (typeof window !== 'undefined') {
+        try {
+          const authData = localStorage.getItem('agentops_auth_user');
+          if (authData) {
+            const user = JSON.parse(authData);
+            activeRole = user.role || 'Viewer';
+          }
+        } catch {
+          // Fallback to default
+        }
+      }
+
+      // Viewer cannot run write operations
+      const isWriteAction =
+        args.action === 'createIssue' ||
+        args.action === 'postMessage' ||
+        args.action === 'sendEmail' ||
+        args.action === 'createPage' ||
+        args.action === 'uploadFile' ||
+        args.action === 'writeFile' ||
+        /insert|update|delete|drop|alter/i.test(String(args.query || ''));
+
+      if (isWriteAction && activeRole === 'Viewer') {
+        throw new Error(`SSO Permission Denied: Your current role '${activeRole}' does not allow executing write/modify actions on this plugin.`);
+      }
     }
 
     // Argument verification

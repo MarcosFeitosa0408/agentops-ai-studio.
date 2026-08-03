@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Google Drive action: listFiles or uploadFile"
+    },
+    "fileName": {
+      "type": "string",
+      "description": "The name of the file to upload"
+    },
+    "fileContent": {
+      "type": "string",
+      "description": "The textual content of the file"
+    },
+    "folderId": {
+      "type": "string",
+      "description": "Optional parent folder ID"
+    }
+  },
+  "required": ["action"]
+}

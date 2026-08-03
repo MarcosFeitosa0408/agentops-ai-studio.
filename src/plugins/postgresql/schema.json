@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The raw SQL select or insert/update statement to execute safely."
+    }
+  },
+  "required": ["query"]
+}

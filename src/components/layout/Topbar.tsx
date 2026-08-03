@@ -1,11 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Sun, Moon, Bell, Menu, Shield } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Sun, Moon, Bell, Menu, Shield, LogOut, Building } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
+import { useWorkspace } from '@/context/WorkspaceContext';
 import { IconButton } from '@/components/ui/IconButton';
-import { Avatar } from '@/components/ui/Avatar';
-import { Badge } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
 import { useIsMounted } from '@/hooks/useIsMounted';
 
@@ -15,12 +16,23 @@ export interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
   const { theme, toggleTheme } = useTheme();
+  const { currentUser, logout } = useAuth();
+  const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
   const { toast } = useToast();
   const isMounted = useIsMounted();
+  const router = useRouter();
 
   const handleNotificationClick = () => {
     toast('System Alert', 'No new system issues detected.', 'success');
   };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+    toast('Sessão Encerrada', 'Você saiu da sua conta corporativa com segurança.', 'success');
+  };
+
+  const userWorkspaces = workspaces.filter((ws) => currentUser && ws.members.includes(currentUser.id));
 
   return (
     <header className="border-border bg-surface/80 sticky top-0 z-40 w-full border-b backdrop-blur-md transition-colors duration-200 select-none">
@@ -46,9 +58,24 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
               AgentOps AI <span className="text-primary">Studio</span>
             </span>
           </div>
-          <Badge variant="primary" className="hidden md:inline-flex">
-            Sprint 2 DS
-          </Badge>
+
+          {/* Active Workspace Switcher */}
+          {currentUser && activeWorkspace && (
+            <div className="hidden items-center gap-1.5 md:flex ml-2">
+              <Building className="h-3.5 w-3.5 text-text-muted" />
+              <select
+                value={activeWorkspace.id}
+                onChange={(e) => switchWorkspace(e.target.value)}
+                className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-semibold text-text-primary focus:outline-none focus:ring-1 focus:ring-primary max-w-[200px]"
+              >
+                {userWorkspaces.map((ws) => (
+                  <option key={ws.id} value={ws.id}>
+                    {ws.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Right section: System Utilities, Theme, Notify, User */}
@@ -88,20 +115,46 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar }) => {
 
           <div className="bg-border h-6 w-[1px]" />
 
-          {/* User Info */}
-          <div className="flex items-center gap-2">
-            <Avatar
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop"
-              fallback="JD"
-              size="sm"
-            />
-            <div className="hidden flex-col text-left select-none sm:flex">
-              <span className="text-text-primary text-xs leading-tight font-semibold">
-                Jane Doe
-              </span>
-              <span className="text-text-muted text-[10px] leading-none">System Architect</span>
+          {/* User Info & Actions */}
+          {currentUser ? (
+            <div className="flex items-center gap-3">
+              {/* Profile Link */}
+              <div
+                onClick={() => router.push('/profile')}
+                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 font-bold text-xs text-primary">
+                  {currentUser.avatar}
+                </div>
+                <div className="hidden flex-col text-left select-none sm:flex">
+                  <span className="text-text-primary text-xs leading-tight font-semibold">
+                    {currentUser.name}
+                  </span>
+                  <span className="text-text-muted text-[10px] leading-none">
+                    {currentUser.role}
+                  </span>
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <IconButton
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                aria-label="Fazer Logout"
+                className="text-text-muted hover:text-danger"
+              >
+                <LogOut className="h-4 w-4" />
+              </IconButton>
             </div>
-          </div>
+          ) : (
+            <button
+              onClick={() => router.push('/login')}
+              className="text-xs font-semibold text-primary hover:underline px-2.5 py-1.5"
+            >
+              Entrar
+            </button>
+          )}
         </div>
       </div>
     </header>
