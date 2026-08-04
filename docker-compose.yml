@@ -1,0 +1,12 @@
+services:
+  agentops-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentops-ai-studio
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: always

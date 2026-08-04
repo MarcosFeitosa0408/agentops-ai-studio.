@@ -1,0 +1,39 @@
+name: AgentOps AI Studio CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, sprint-10-platform-stabilization ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Linter (0 warnings target)
+        run: npm run lint
+
+      - name: Run Type Check (0 errors target)
+        run: npx tsc --noEmit
+
+      - name: Run Automated Tests
+        run: npm run test
+
+      - name: Run Production Build
+        run: npm run build
+
+      - name: Run Security Audit Scan
+        run: npm audit --audit-level=high || true
