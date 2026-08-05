@@ -27,6 +27,7 @@ export interface Document {
   createdAt: string;
   updatedAt: string;
   status: 'pending' | 'parsing' | 'indexed' | 'failed';
+  organizationId?: string;
   metadata: {
     title?: string;
     author?: string;

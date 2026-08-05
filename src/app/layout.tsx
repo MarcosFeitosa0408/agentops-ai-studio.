@@ -5,6 +5,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { AgentProvider } from '@/context/AgentContext';
 import { AIConfigProvider } from '../lib/ai/hooks/useAIConfig';
 import { AuthProvider } from '@/context/AuthContext';
+import { OrganizationProvider } from '@/context/OrganizationContext';
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 import { AuditProvider } from '@/context/AuditContext';
 import { SettingsProvider } from '@/context/SettingsContext';
@@ -43,13 +44,15 @@ export default function RootLayout({
             <AIConfigProvider>
               <AgentProvider>
                 <AuthProvider>
-                  <WorkspaceProvider>
-                    <AuditProvider>
-                      <SettingsProvider>
-                        {children}
-                      </SettingsProvider>
-                    </AuditProvider>
-                  </WorkspaceProvider>
+                  <OrganizationProvider>
+                    <WorkspaceProvider>
+                      <AuditProvider>
+                        <SettingsProvider>
+                          {children}
+                        </SettingsProvider>
+                      </AuditProvider>
+                    </WorkspaceProvider>
+                  </OrganizationProvider>
                 </AuthProvider>
               </AgentProvider>
             </AIConfigProvider>

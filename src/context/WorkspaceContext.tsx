@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Workspace } from '../lib/workspaces/types';
 import { INITIAL_WORKSPACES } from '../lib/workspaces/workspaceService';
 import { useAuth } from './AuthContext';
+import { OrganizationIsolation } from '@/organizations/OrganizationIsolation';
 
 interface WorkspaceContextType {
   workspaces: Workspace[];
@@ -42,8 +43,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Filter workspaces user is member of
-      const userWorkspaces = workspaces.filter((ws) => ws.members.includes(currentUser.id));
+      // Filter workspaces user is member of AND belongs to the active organization
+      const userWorkspaces = workspaces.filter((ws) => {
+        try {
+          if (!OrganizationIsolation.isUserAllowed(ws.ownerId)) return false;
+        } catch {
+          // ignore
+        }
+        return ws.members.includes(currentUser.id);
+      });
       if (userWorkspaces.length === 0) {
         setActiveWorkspace(null);
         return;
@@ -65,6 +73,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const switchWorkspace = (workspaceId: string) => {
     const found = workspaces.find((ws) => ws.id === workspaceId);
     if (found && currentUser && found.members.includes(currentUser.id)) {
+      try {
+        if (!OrganizationIsolation.isUserAllowed(found.ownerId)) return;
+      } catch {
+        // ignore
+      }
       setActiveWorkspace(found);
       localStorage.setItem('s8_active_workspace_id', workspaceId);
     }
@@ -105,10 +118,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('s8_workspaces', JSON.stringify(updated));
   };
 
+  const exposedWorkspaces = workspaces.filter((ws) => {
+    try {
+      return OrganizationIsolation.isUserAllowed(ws.ownerId);
+    } catch {
+      return true;
+    }
+  });
+
   return (
     <WorkspaceContext.Provider
       value={{
-        workspaces,
+        workspaces: exposedWorkspaces,
         activeWorkspace,
         switchWorkspace,
         createWorkspace,
