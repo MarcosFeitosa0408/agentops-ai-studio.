@@ -2,89 +2,54 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Plus,
   Clock,
-  ChevronRight,
-  TrendingUp,
-  Sparkles,
   Activity,
   Database,
-  Cpu,
-  Wrench,
   CheckCircle,
-  Zap,
-  GitBranch,
   Boxes,
-  Shield,
+  Users,
+  BarChart,
 } from 'lucide-react';
 import Link from 'next/link';
-import { PluginRegistry } from '../../lib/mcp/registry/PluginRegistry';
 
 import { useAgents } from '@/context/AgentContext';
-import { Agent } from '@/types/agent';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { WorkspaceLayout } from '../../components/workspace/WorkspaceLayout';
-import { CreateAgentModal } from '../../components/agents/CreateAgentModal';
 import { AgentStatusBadge } from '../../components/agents/AgentStatusBadge';
 import { useAIConfig } from '../../lib/ai/hooks/useAIConfig';
-import { ProviderConfig } from '../../lib/ai/types';
 import { useIsMounted } from '@/hooks/useIsMounted';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { RouteProtection } from '../../components/security/RouteProtection';
 
-// Local systems managers
+// Local systems managers & Workforce S11 integration
 import { MemoryStorage } from '../../lib/memory/storage/MemoryStorage';
 import { ToolExecutionService } from '../../lib/tools/services/ToolExecutionService';
 import { ExecutionMonitor } from '../../lib/workflows/services/ExecutionMonitor';
 import { WorkflowLogService } from '../../lib/workflows/services/WorkflowLogService';
 import { MemoryItem } from '../../lib/memory/types';
-import { ToolStatus, ToolResult } from '../../lib/tools/types';
-import { WorkflowStatistics, WorkflowLog } from '../../lib/workflows/types';
-import { ExecutionTimeline } from '../../components/tools/TimelineComponents';
 
-interface TimelineStepData {
-  toolId: string;
-  toolName: string;
-  iconName: string;
-  reason: string;
-  durationMs: number;
-  status: ToolStatus;
-  input: Record<string, unknown>;
-  output?: ToolResult;
-}
+import { WorkerManager } from '@/workforce/WorkerManager';
+import { WorkerHistoryEntry } from '@/workforce/WorkerHistory';
 
 export default function DashboardPage() {
   const isMounted = useIsMounted();
-  const { agents, addAgent, toggleAgentStatus } = useAgents();
-  const { configs, activeProviderId } = useAIConfig();
+  const { agents } = useAgents();
+  const { activeProviderId } = useAIConfig();
   const { activeWorkspace } = useWorkspace();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // States for Cognitive / RAG / Executions parameters
   const [recentMemories, setRecentMemories] = useState<MemoryItem[]>([]);
 
-  // Tool Execution Metrics state
-  const [execMetrics, setExecMetrics] = useState({
-    totalExecutions: 0,
-    successfulExecutions: 0,
-    failedExecutions: 0,
-    averageLatencyMs: 0,
-    mostUsedToolId: 'N/A',
-  });
-  const [dashboardTimeline, setDashboardTimeline] = useState<TimelineStepData[]>([]);
-
-  // Workflow Metrics state (Sprint 7 Part 9)
-  const [wfStats, setWfStats] = useState<WorkflowStatistics | null>(null);
-  const [recentWfLogs, setRecentWfLogs] = useState<WorkflowLog[]>([]);
-
-  // MCP Plugin Metrics state (Module 9)
-  const [mcpMetrics, setMcpMetrics] = useState({
-    activePlugins: 0,
-    totalPlugins: 0,
-    averageLatency: 0,
-    healthRate: 100,
+  // Sprint 11: Expanded Business Workforce Metrics
+  const [workforceMetrics, setWorkforceMetrics] = useState({
+    runningWorkers: 0,
+    tasksCompleted: 0,
+    averageTimeMs: 0,
+    memoryUsageMb: 0,
+    mostActive: [] as { name: string; avatar: string; category: string; count: number }[],
+    recentRuns: [] as WorkerHistoryEntry[],
+    pluginUsage: [] as { name: string; count: number }[],
   });
 
   // Load Cognitive / RAG / Tools Executions safely
@@ -96,67 +61,82 @@ export default function DashboardPage() {
         const monitorService = ExecutionMonitor.getInstance();
         const wfLogService = WorkflowLogService.getInstance();
 
+        // 1. Cognitive & Core logs
         const listMems = mStorage.list().slice(0, 3);
 
-        const metrics = execService.getMetrics();
-        const logs = execService.getLogs().slice(0, 2);
+        // 2. S11 Workforce integration
+        const wManager = WorkerManager.getInstance();
+        const wHistory = wManager.getHistory();
+        const wList = wManager.list();
 
-        // Convert tool logs to timeline steps format
-        const registry = execService.getRegistry();
-        const timelineSteps = logs.map((log) => {
-          const toolMeta = registry.find(log.toolId);
-          return {
-            toolId: log.toolId,
-            toolName: toolMeta?.name || log.toolId,
-            iconName: toolMeta?.icon || 'Terminal',
-            reason: `Dispatched contextual operation pipeline from agent ${log.agentId || 'System'}`,
-            durationMs: log.durationMs || 12,
-            status: log.status,
-            input: log.input,
-            output: log.output,
-          };
+        const runningCount = wList.filter((w) => w.status === 'running').length;
+        const completedCount = wHistory.filter((h) => h.status === 'completed').length;
+        const totalDuration = wHistory.reduce((acc, h) => acc + (h.durationMs || 0), 0);
+        const averageTime = wHistory.length > 0 ? Math.round(totalDuration / wHistory.length) : 0;
+
+        // Compute most active workers ranking
+        const runsMap: Record<string, number> = {};
+        wHistory.forEach((h) => {
+          runsMap[h.workerId] = (runsMap[h.workerId] || 0) + 1;
         });
+        const activeRanking = wList
+          .map((w) => ({
+            name: w.name,
+            avatar: w.avatar,
+            category: w.category,
+            count: runsMap[w.id] || 0,
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 4);
 
-        const computedWfStats = monitorService.getStatistics();
-        const listWfLogs = wfLogService.list().slice(0, 3);
+        // Compute active plugins usage in workforce
+        const pluginMap: Record<string, number> = {};
+        wList.forEach((w) => {
+          if (w.installed && w.enabled) {
+            w.tools.forEach((t) => {
+              pluginMap[t] = (pluginMap[t] || 0) + (runsMap[w.id] || 0) + 1;
+            });
+          }
+        });
+        const pluginUsageList = Object.entries(pluginMap)
+          .map(([name, count]) => ({
+            name: name.replace('_connector', '').toUpperCase(),
+            count,
+          }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 4);
 
-        // Calculate MCP stats
-        const pRegistry = PluginRegistry.getInstance();
-        pRegistry.discoverPlugins();
-        const pList = pRegistry.list();
-        const installed = pList.filter((p) => p.installed);
-        const activeCount = pList.filter((p) => p.installed && p.enabled).length;
-        const activeWithLat = pList.filter((p) => p.installed && p.enabled && p.latencyMs > 0);
-        const avgLat = activeWithLat.length > 0
-          ? Math.round(activeWithLat.reduce((acc, curr) => acc + curr.latencyMs, 0) / activeWithLat.length)
-          : 0;
-        const healthyCount = pList.filter((p) => p.installed && p.enabled && p.health === 'healthy').length;
-        const rate = activeCount > 0 ? Math.round((healthyCount / activeCount) * 100) : 100;
+        // Simulated workforce memory stats
+        const memoryBytes = wList.filter((w) => w.installed).length * 1024 * 1024 * 12.4; // simulated 12.4 MB per installed worker
+        const memoryUsageMb = parseFloat((memoryBytes / (1024 * 1024)).toFixed(1));
 
-        setTimeout(() => {
+        // Trigger safe hydration updates to prevent React 19 warnings
+        const timeoutId = setTimeout(() => {
           setRecentMemories(listMems);
-          setExecMetrics(metrics);
-          setDashboardTimeline(timelineSteps);
-          setWfStats(computedWfStats);
-          setRecentWfLogs(listWfLogs);
-          setMcpMetrics({
-            activePlugins: activeCount,
-            totalPlugins: installed.length,
-            averageLatency: avgLat || 12, // default simulated ms
-            healthRate: rate,
+
+          setWorkforceMetrics({
+            runningWorkers: runningCount,
+            tasksCompleted: completedCount,
+            averageTimeMs: averageTime || 2400,
+            memoryUsageMb: memoryUsageMb || 12.4,
+            mostActive: activeRanking,
+            recentRuns: wHistory.slice(0, 4),
+            pluginUsage: pluginUsageList,
           });
         }, 0);
+
+        return () => {
+          clearTimeout(timeoutId);
+          // Unused variables warning suppression
+          void execService;
+          void monitorService;
+          void wfLogService;
+        };
       } catch (err) {
         console.error('Failed to load dashboard metrics from local storage:', err);
       }
     }
   }, [isMounted]);
-
-  // AI metrics
-  const activeConfigsList = Object.values(configs || {}) as ProviderConfig[];
-  const enabledProvidersCount = activeConfigsList.filter((c: ProviderConfig) => c.enabled).length;
-  const defaultProviderConfig = configs?.[activeProviderId];
-  const defaultModelName = defaultProviderConfig?.selectedModelId || 'Não selecionado';
 
   // Workspace-based dynamic agent isolation
   const workspaceIsolatedAgents = agents.filter((agent) => {
@@ -179,11 +159,6 @@ export default function DashboardPage() {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 3);
 
-  const handleCreateAgent = (data: Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>) => {
-    addAgent(data);
-    setIsCreateModalOpen(false);
-  };
-
   const formatDate = (isoString: string) => {
     try {
       const date = new Date(isoString);
@@ -202,625 +177,298 @@ export default function DashboardPage() {
     <RouteProtection>
       <WorkspaceLayout
         activePath="dashboard"
-        title="Visão Geral do Estúdio"
-        breadcrumbs={[{ label: 'Studio' }, { label: 'Dashboard' }]}
-        onCreateAgentClick={() => setIsCreateModalOpen(true)}
+        title="Painel Executivo de Automação"
+        breadcrumbs={[{ label: 'Studio' }, { label: 'Dashboard Geral' }]}
       >
         <div className="space-y-8 max-w-7xl mx-auto text-left">
-          {/* Intro Banner */}
-          <div className="border-border bg-gradient-to-tr from-primary/10 via-transparent to-accent/5 rounded-2xl border p-6 md:p-8 shadow-xs select-none">
+          {/* Welcome Intro Banner */}
+          <div className="border-border bg-gradient-to-tr from-violet-500/10 via-transparent to-primary/5 rounded-2xl border p-6 md:p-8 shadow-xs select-none">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 text-left">
+                <span className="bg-primary/15 text-primary text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full">
+                  Plataforma Unificada Workforce & Automação
+                </span>
                 <h2 className="text-text-primary text-xl md:text-2xl font-bold tracking-tight">
-                  Bem-vindo ao AgentOps AI Studio!
+                  Bem-vindo ao AI Workforce Studio!
                 </h2>
                 {activeWorkspace && (
-                  <div className="inline-flex items-center gap-1 bg-violet-500/10 text-violet-400 font-bold text-xs px-2.5 py-0.5 rounded-full mb-2">
+                  <div className="inline-flex items-center gap-1 bg-violet-500/10 text-violet-400 font-bold text-xs px-2.5 py-0.5 rounded-full mb-1">
                     Workspace Ativo: {activeWorkspace.name}
                   </div>
                 )}
                 <p className="text-text-secondary text-sm max-w-2xl leading-relaxed">
-                  Gerencie, configure e refine seus agentes de IA especializados de forma visual e intuitiva.
-                  Utilize o painel abaixo para monitorar suas instâncias ou criar novos assistentes.
+                  Gerencie e analise em tempo real seus trabalhadores de negócios, workflows automatizados de dados, e conectores MCP em conformidade corporativa com governança por Workspace.
                 </p>
               </div>
-              <Button
-                variant="primary"
-                size="md"
-                leftIcon={<Plus className="h-4.5 w-4.5" />}
-                onClick={() => setIsCreateModalOpen(true)}
-                className="shrink-0"
-              >
-                Criar Agente
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Link href="/workers" passHref legacyBehavior>
+                  <Button variant="primary" size="md">
+                    Trabalhadores IA
+                  </Button>
+                </Link>
+                <Link href="/chat" passHref legacyBehavior>
+                  <Button variant="secondary" size="md">
+                    Abrir Chat
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
 
-          {/* AI Gateway Overview Widget */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2 border-border bg-card">
-              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1.5">
-                  <span className="text-[10px] text-primary font-bold uppercase tracking-wider flex items-center gap-1.5">
-                    <Activity className="h-4 w-4 animate-pulse" />
-                    Status do AI Gateway
-                  </span>
-                  <h3 className="text-text-primary text-base font-bold text-left">
-                    Provedor Padrão Ativo: <span className="text-primary font-extrabold uppercase">{activeProviderId}</span>
-                  </h3>
-                  <p className="text-text-secondary text-xs max-w-xl leading-relaxed text-left">
-                    Todas as inferências de agentes cognitivos no estúdio estão sendo roteadas pelo gateway inteligente utilizando o modelo de linguagem <strong className="text-text-primary">{defaultModelName}</strong>.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="text-right select-none hidden sm:block">
-                    <div className="text-xs text-text-muted">Provedores Ativos</div>
-                    <div className="text-sm font-bold text-success">{enabledProvidersCount} de 6</div>
-                  </div>
-                  <Link href="/settings" passHref legacyBehavior>
-                    <Button variant="outline" size="sm">
-                      Configurar AI
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="border-border bg-card p-5 flex flex-col justify-between text-left">
-              <div className="space-y-1">
-                <span className="text-[10px] text-accent font-bold uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Playground Direto
-                </span>
-                <p className="text-text-primary text-sm font-bold">Inicie um Teste Rápido</p>
-                <p className="text-text-muted text-xs leading-normal">
-                  Experimente o comportamento heurístico dos modelos disponíveis antes de atribuí-los a um agente.
-                </p>
-              </div>
-              <Link href="/playground" passHref legacyBehavior>
-                <Button variant="secondary" size="xs" className="w-full mt-3">
-                  Abrir Playground de Chat
-                </Button>
-              </Link>
-            </Card>
+          {/* S11 WORKFORCE ANALYTICS WIDGETS SECTION */}
+          <div className="space-y-3 px-1">
+            <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2">
+              <Users className="h-5 w-5 text-violet-500" />
+              Métricas Corporativas — AI Workforce Analytics
+            </h3>
           </div>
 
-          {/* Sprint 7 Part 9: Integrated Workflow automation stats cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Workers running */}
             <Card className="p-1">
               <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 text-left">
                   <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Workflows Ativos
+                    Trabalhadores Ativos
                   </CardTitle>
                   <CardDescription className="text-text-muted text-[10px]">
-                    Processando em segundo plano
+                    Ativos processando agora
                   </CardDescription>
                 </div>
-                <div className="bg-success/10 text-success p-2 rounded-xl">
-                  <GitBranch className="h-4.5 w-4.5" />
+                <div className="bg-violet-500/10 text-violet-500 p-2 rounded-xl">
+                  <Activity className="h-4.5 w-4.5 animate-pulse" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1 select-none">
+              <CardContent className="pt-1 select-none text-left">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-text-primary text-2xl font-extrabold">
-                    {wfStats?.activeWorkflows || 0}
-                  </span>
+                  <span className="text-text-primary text-2xl font-extrabold">{workforceMetrics.runningWorkers}</span>
                   <span className="text-text-muted text-xs">ativos</span>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Tasks Completed */}
             <Card className="p-1">
               <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 text-left">
                   <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Rodadas de Workflow
+                    Tarefas Concluídas
                   </CardTitle>
                   <CardDescription className="text-text-muted text-[10px]">
-                    Execuções concluídas
-                  </CardDescription>
-                </div>
-                <div className="bg-indigo-500/10 text-indigo-500 p-2 rounded-xl">
-                  <Activity className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-1 select-none">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-text-primary text-2xl font-extrabold">
-                    {wfStats?.totalExecutions || 0}
-                  </span>
-                  <span className="text-text-muted text-xs">rodadas</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Taxa de Sucesso (WF)
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Assertividade das regras
+                    Jobs históricos processados
                   </CardDescription>
                 </div>
                 <div className="bg-success/10 text-success p-2 rounded-xl">
                   <CheckCircle className="h-4.5 w-4.5" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1 select-none">
+              <CardContent className="pt-1 select-none text-left">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-success text-2xl font-extrabold">
-                    {wfStats?.successRate || 100}%
-                  </span>
-                  <span className="text-text-muted text-xs">sucesso</span>
+                  <span className="text-success text-2xl font-extrabold">{workforceMetrics.tasksCompleted}</span>
+                  <span className="text-text-muted text-xs">concluídas</span>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Average time execution S11 */}
             <Card className="p-1">
               <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5">
+                <div className="space-y-0.5 text-left">
                   <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Duração Média (WF)
+                    Tempo Médio (Worker)
                   </CardTitle>
                   <CardDescription className="text-text-muted text-[10px]">
-                    Latência ponta-a-ponta
+                    Latência média por prompt
                   </CardDescription>
                 </div>
                 <div className="bg-amber-500/10 text-amber-500 p-2 rounded-xl">
                   <Clock className="h-4.5 w-4.5" />
                 </div>
               </CardHeader>
-              <CardContent className="pt-1 select-none flex items-center justify-between">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-text-primary text-2xl font-extrabold">
-                    {wfStats?.averageDurationMs || 0}
-                  </span>
-                  <span className="text-text-muted text-xs">ms</span>
-                </div>
-                <Link href="/workflows" passHref legacyBehavior>
-                  <a className="text-primary hover:text-primary-hover text-[11px] font-bold inline-flex items-center gap-0.5">
-                    Ver Canvas
-                    <ChevronRight className="h-3 w-3" />
-                  </a>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Cognitive & Tools Engine KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Total Executions */}
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5 text-left">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Total de Execuções
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Ferramentas acionadas hoje
-                  </CardDescription>
-                </div>
-                <div className="bg-primary/10 text-primary p-2 rounded-xl border border-primary/10">
-                  <Wrench className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
               <CardContent className="pt-1 select-none text-left">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-text-primary text-2xl font-extrabold">{execMetrics.totalExecutions}</span>
-                  <span className="text-text-muted text-xs">rodadas</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Success Executions */}
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5 text-left">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Execuções de Sucesso
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Concluídas sem erros
-                  </CardDescription>
-                </div>
-                <div className="bg-success/10 text-success p-2 rounded-xl border border-success/10">
-                  <CheckCircle className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-1 select-none text-left">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-success text-2xl font-extrabold">{execMetrics.successfulExecutions}</span>
-                  <span className="text-text-muted text-xs">rodadas</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Average Latency */}
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5 text-left">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Latência Média
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Tempo médio de resposta
-                  </CardDescription>
-                </div>
-                <div className="bg-amber-500/10 text-amber-500 p-2 rounded-xl border border-amber-500/10">
-                  <Zap className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-1 select-none text-left">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-text-primary text-2xl font-extrabold">{execMetrics.averageLatencyMs}</span>
+                  <span className="text-text-primary text-2xl font-extrabold">{workforceMetrics.averageTimeMs}</span>
                   <span className="text-text-muted text-xs">ms</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Most Used Tool */}
+            {/* Memory Usage Mb */}
             <Card className="p-1">
               <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
                 <div className="space-y-0.5 text-left">
                   <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Ferramenta Mais Usada
+                    Uso de Memória
                   </CardTitle>
                   <CardDescription className="text-text-muted text-[10px]">
-                    Maior taxa de engajamento
+                    Espaço local indexado
                   </CardDescription>
                 </div>
-                <div className="bg-indigo-500/10 text-indigo-500 p-2 rounded-xl border border-indigo-500/10">
-                  <Cpu className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-1 select-none text-left flex items-center justify-between">
-                <span className="text-text-primary text-xs font-extrabold bg-neutral-light/50 px-2 py-0.5 rounded-sm truncate max-w-[120px]">
-                  {execMetrics.mostUsedToolId.replace('_tool', '').toUpperCase()}
-                </span>
-                <Link href="/tools" passHref legacyBehavior>
-                  <a className="text-primary hover:text-primary-hover text-[11px] font-bold inline-flex items-center gap-0.5 shrink-0">
-                    Ver todas
-                    <ChevronRight className="h-3 w-3" />
-                  </a>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Model Context Protocol (MCP) & Plugin Ecosystem KPIs */}
-          <div className="space-y-3 px-1">
-            <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2">
-              <Boxes className="h-4.5 w-4.5 text-violet-500" />
-              Plugins Conectados via Model Context Protocol (MCP)
-            </h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {/* Active MCP Connectors */}
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5 text-left">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Conectores Ativos
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Ativos no Marketplace MCP
-                  </CardDescription>
-                </div>
-                <div className="bg-violet-500/10 text-violet-500 p-2 rounded-xl border border-violet-500/10">
-                  <Boxes className="h-4.5 w-4.5" />
+                <div className="bg-indigo-500/10 text-indigo-500 p-2 rounded-xl">
+                  <Database className="h-4.5 w-4.5" />
                 </div>
               </CardHeader>
               <CardContent className="pt-1 select-none text-left">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-text-primary text-2xl font-extrabold">
-                    {mcpMetrics.activePlugins}
-                  </span>
-                  <span className="text-text-muted text-xs">de {mcpMetrics.totalPlugins}</span>
+                  <span className="text-text-primary text-2xl font-extrabold">{workforceMetrics.memoryUsageMb}</span>
+                  <span className="text-text-muted text-xs">MB</span>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* MCP Health Rate */}
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5 text-left">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Saúde do Protocolo
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Status dos servidores virtuais
-                  </CardDescription>
-                </div>
-                <div className="bg-success/10 text-success p-2 rounded-xl border border-success/10">
-                  <CheckCircle className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-1 select-none text-left">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-success text-2xl font-extrabold">
-                    {mcpMetrics.healthRate}%
-                  </span>
-                  <span className="text-text-muted text-xs">operando</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* MCP Average Latency */}
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5 text-left">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Latência do Gateway
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Tempo médio por chamada MCP
-                  </CardDescription>
-                </div>
-                <div className="bg-amber-500/10 text-amber-500 p-2 rounded-xl border border-amber-500/10">
-                  <Zap className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-1 select-none text-left">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-text-primary text-2xl font-extrabold">
-                    {mcpMetrics.averageLatency}
-                  </span>
-                  <span className="text-text-muted text-xs">ms</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Secret Manager Integration */}
-            <Card className="p-1">
-              <CardHeader className="pb-1.5 flex flex-row items-center justify-between space-y-0">
-                <div className="space-y-0.5 text-left">
-                  <CardTitle className="text-text-secondary text-xs font-semibold tracking-wider uppercase">
-                    Secret Manager (AES)
-                  </CardTitle>
-                  <CardDescription className="text-text-muted text-[10px]">
-                    Status das credenciais
-                  </CardDescription>
-                </div>
-                <div className="bg-primary/10 text-primary p-2 rounded-xl border border-primary/10">
-                  <Shield className="h-4.5 w-4.5" />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-1 select-none text-left flex items-center justify-between">
-                <span className="text-success text-xs font-extrabold bg-success/10 px-2 py-0.5 rounded-sm">
-                  VAULT ATIVO
-                </span>
-                <Link href="/plugins" passHref legacyBehavior>
-                  <a className="text-primary hover:text-primary-hover text-[11px] font-bold inline-flex items-center gap-0.5 shrink-0">
-                    Ir para Plugins
-                    <ChevronRight className="h-3 w-3" />
-                  </a>
-                </Link>
               </CardContent>
             </Card>
           </div>
 
-          {/* Split Grid: Left 2 columns (Recent items & Agents) - Right 1 column (Recent Memories feed) */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Recent Agents column (Spans 2 on large screens) */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Recent Agents section */}
-              <div className="space-y-3.5">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2">
-                    <Clock className="h-4.5 w-4.5 text-primary animate-pulse" />
-                    Agentes Ativos Atualizados Recentemente ({workspaceIsolatedAgents.length} isolados)
-                  </h3>
-                  <Link href="/agents" passHref legacyBehavior>
-                    <a className="text-primary hover:text-primary-hover text-xs font-semibold inline-flex items-center gap-0.5">
-                      Ver todos os agentes
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </a>
-                  </Link>
-                </div>
-
-                <div className="space-y-3">
-                  {recentAgents.length > 0 ? (
-                    recentAgents.map((agent) => (
-                      <Card
-                        key={agent.id}
-                        className="hover:border-primary/25 border-border transition-all duration-200"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4.5">
-                          <div className="space-y-1 min-w-0 text-left">
-                            <div className="flex items-center gap-2.5">
-                              <h4 className="text-text-primary text-sm font-bold tracking-tight truncate">
-                                {agent.name}
-                              </h4>
-                              <Badge variant="outline" size="sm" className="bg-neutral-light/30">
-                                {agent.specialty}
-                              </Badge>
-                            </div>
-                            <p className="text-text-secondary text-xs line-clamp-1">
-                              {agent.description}
-                            </p>
-                            <div className="flex items-center gap-1.5 text-[10px] text-text-muted pt-0.5">
-                              <span>Última atualização: {formatDate(agent.updatedAt)}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                            <AgentStatusBadge status={agent.status} />
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="xs"
-                                onClick={() => toggleAgentStatus(agent.id)}
-                                className={agent.status === 'active' ? 'text-text-secondary' : 'text-success'}
-                              >
-                                {agent.status === 'active' ? 'Pausar' : 'Ativar'}
-                              </Button>
-                              <Link href={`/agents?select=${agent.id}`} passHref legacyBehavior>
-                                <Button variant="secondary" size="xs">
-                                  Configurar
-                                </Button>
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      </Card>
-                    ))
-                  ) : (
-                    <div className="border-border bg-card rounded-xl border border-dashed p-10 text-center select-none">
-                      <Cpu className="h-8 w-8 text-text-muted mx-auto mb-3" />
-                      <p className="text-text-primary text-sm font-medium">Nenhum agente ativo neste Workspace</p>
-                      <p className="text-text-muted text-xs mt-1">Experimente alternar de workspace na barra superior.</p>
-                    </div>
-                  )}
-                </div>
+          {/* S11 ADVANCED METRICS GRID (Ranking & Plugins usage) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 select-none">
+            {/* Left: Most Active Workers */}
+            <Card className="p-5 text-left space-y-4">
+              <div className="border-b pb-2.5 border-border/40">
+                <h4 className="text-text-primary text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                  <BarChart className="h-4.5 w-4.5 text-violet-500" />
+                  Trabalhadores IA Mais Ativos (Ranking)
+                </h4>
               </div>
 
-              {/* Execution Timeline Widget */}
-              <div className="space-y-3.5 pt-2 text-left">
-                <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2 px-1">
-                  <Activity className="h-4.5 w-4.5 text-primary animate-pulse" />
-                  Linha de Tempo de Execuções Recentes (Ferramentas)
+              <div className="space-y-3">
+                {workforceMetrics.mostActive.map((w, i) => (
+                  <div key={i} className="flex justify-between items-center py-1">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl bg-neutral-light/50 p-1 rounded">{w.avatar}</span>
+                      <div>
+                        <p className="text-text-primary text-xs font-semibold">{w.name}</p>
+                        <p className="text-text-muted text-[10px]">{w.category}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-primary font-bold">{w.count} execuções</span>
+                  </div>
+                ))}
+                {workforceMetrics.mostActive.length === 0 && (
+                  <p className="text-text-muted text-xs text-center py-6">Nenhum dado analítico disponível.</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Right: Plugin Usage Ranking S11 */}
+            <Card className="p-5 text-left space-y-4">
+              <div className="border-b pb-2.5 border-border/40">
+                <h4 className="text-text-primary text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                  <Boxes className="h-4.5 w-4.5 text-emerald-500" />
+                  Volumetria de Uso por MCP Conectores / Plugins
+                </h4>
+              </div>
+
+              <div className="space-y-3">
+                {workforceMetrics.pluginUsage.map((p, i) => (
+                  <div key={i} className="flex justify-between items-center py-1">
+                    <span className="text-text-primary text-xs font-semibold bg-neutral-light/60 px-2 py-0.5 rounded">
+                      {p.name}
+                    </span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-24 bg-neutral-light rounded-full h-1.5">
+                        <div className="bg-primary h-1.5 rounded-full" style={{ width: `${Math.min(100, p.count * 15)}%` }} />
+                      </div>
+                      <span className="text-xs text-text-secondary font-semibold">{p.count} chamadas</span>
+                    </div>
+                  </div>
+                ))}
+                {workforceMetrics.pluginUsage.length === 0 && (
+                  <p className="text-text-muted text-xs text-center py-6">Nenhum conector ativo registrado.</p>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* S11 RECENT AUTOMATIONS TIMELINE AND RECENT HISTORY */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left: Recent Automations List (Spans 2) */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2">
+                  <Clock className="h-4.5 w-4.5 text-primary animate-pulse" />
+                  Histórico de Execuções Recentes de Negócios (Automations)
                 </h3>
-                <ExecutionTimeline steps={dashboardTimeline} />
+              </div>
+
+              <div className="space-y-3.5">
+                {workforceMetrics.recentRuns.map((h) => (
+                  <Card key={h.id} className="hover:border-primary/20 border-border transition-all">
+                    <div className="p-4.5 text-left flex flex-col sm:flex-row justify-between gap-4">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-sm font-bold text-text-primary">{h.workerName}</span>
+                          <span className="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase">
+                            {h.status}
+                          </span>
+                        </div>
+                        <p className="text-text-secondary text-xs truncate leading-relaxed">&quot;{h.task}&quot;</p>
+                        {h.output && (
+                          <div className="bg-surface/50 border rounded-lg p-2.5 mt-2.5 text-[11px] text-text-secondary leading-relaxed font-mono max-h-24 overflow-y-auto whitespace-pre-wrap">
+                            {h.output}
+                          </div>
+                        )}
+                        <span className="text-[10px] text-text-muted block pt-1.5">
+                          Data do Job: {formatDate(h.startedAt)} ({h.durationMs}ms)
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                {workforceMetrics.recentRuns.length === 0 && (
+                  <div className="bg-card border rounded-xl p-8 text-center text-text-muted text-xs">
+                    Nenhuma automação corporativa disparada ainda.
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Column: Recent Memories list & Quick Actions */}
+            {/* Right: Quick triggers & Core Agents */}
             <div className="space-y-6">
-              {/* Sprint 7 Workflow activity feed */}
-              <div className="space-y-3.5">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-1.5">
-                    <Activity className="h-4.5 w-4.5 text-success animate-pulse" />
-                    Atividade Recente de Workflows
-                  </h3>
-                </div>
+              {/* Active core agents isolation */}
+              <div className="space-y-3">
+                <h3 className="text-text-primary text-sm font-bold tracking-tight">
+                  Heuristic Core Agents ({workspaceIsolatedAgents.length} isolados)
+                </h3>
 
-                <Card className="p-4 space-y-4">
-                  {recentWfLogs.map((log) => (
-                    <div key={log.id} className="text-left space-y-1 pb-3 last:pb-0 border-b last:border-0 border-border/30">
-                      <div className="flex items-center justify-between text-[9px] font-bold">
-                        <span className="bg-success/10 text-success px-1.5 py-0.2 rounded-xs uppercase">
-                          {log.status}
-                        </span>
-                        <span className="text-text-muted">{formatDate(log.timestamp).split(' ')[0]}</span>
+                <div className="space-y-3">
+                  {recentAgents.map((agent) => (
+                    <Card key={agent.id} className="p-3.5 text-left space-y-1">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-bold text-text-primary">{agent.name}</h4>
+                        <AgentStatusBadge status={agent.status} />
                       </div>
-                      <p className="text-text-primary text-xs font-semibold leading-normal">
-                        Execução {log.executionId} ({log.durationMs}ms)
-                      </p>
-                      <p className="text-[10px] text-text-muted">
-                        Nós visitados: {log.executionPath.join(' → ')}
-                      </p>
-                    </div>
+                      <p className="text-text-secondary text-[11px] line-clamp-1">{agent.description}</p>
+                    </Card>
                   ))}
-                  {recentWfLogs.length === 0 && (
-                    <p className="text-text-muted text-xs text-center py-4">
-                      Nenhum log de fluxo registrado.
-                    </p>
-                  )}
-                </Card>
+                </div>
               </div>
 
-              {/* Recent Memories column list */}
-              <div className="space-y-3.5">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-1.5">
-                    <Database className="h-4.5 w-4.5 text-indigo-500 animate-pulse" />
-                    Memórias Recentes
-                  </h3>
-                  <Link href="/memory" passHref legacyBehavior>
-                    <a className="text-primary hover:text-primary-hover text-xs font-semibold inline-flex items-center gap-0.5">
-                      Ver todas
-                      <ChevronRight className="h-3 w-3" />
-                    </a>
-                  </Link>
-                </div>
+              {/* Recent Memories feed */}
+              <div className="space-y-3 select-none">
+                <h3 className="text-text-primary text-sm font-bold tracking-tight">
+                  Memórias Recentes do Workspace
+                </h3>
 
-                <Card className="p-4 space-y-4 select-none">
-                  {recentMemories.map((mem) => (
-                    <div key={mem.id} className="text-left space-y-1 pb-3 last:pb-0 border-b last:border-0 border-border/30">
-                      <div className="flex items-center justify-between text-[9px] font-bold">
-                        <span className="bg-indigo-500/10 text-indigo-500 px-1.5 py-0.2 rounded-xs uppercase">
-                          {mem.scope}
-                        </span>
-                        <span className="text-text-muted">{formatDate(mem.createdAt).split(' ')[0]}</span>
-                      </div>
-                      <p className="text-text-primary text-xs leading-normal line-clamp-2">
-                        &quot;{mem.content}&quot;
-                      </p>
+                <Card className="p-4 space-y-3 text-left">
+                  {recentMemories.map((m) => (
+                    <div key={m.id} className="pb-2 border-b last:border-0 border-border/40 last:pb-0 text-left space-y-1">
+                      <span className="text-[9px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded uppercase">{m.scope}</span>
+                      <p className="text-[11px] text-text-primary leading-normal line-clamp-2">&quot;{m.content}&quot;</p>
                     </div>
                   ))}
                   {recentMemories.length === 0 && (
-                    <p className="text-text-muted text-xs text-center py-4">
-                      Nenhuma memória local ativa.
-                    </p>
+                    <p className="text-text-muted text-xs text-center py-4">Nenhuma memória local.</p>
                   )}
                 </Card>
               </div>
 
-              {/* Quick Actions Panel */}
-              <div className="space-y-3.5">
-                <h3 className="text-text-primary text-sm font-bold tracking-tight flex items-center gap-2 px-1">
-                  <TrendingUp className="h-4.5 w-4.5 text-accent" />
-                  Ações Rápidas
-                </h3>
-
-                <Card className="p-4 space-y-3.5 text-left">
-                  <Button
-                    variant="primary"
-                    size="md"
-                    className="w-full flex items-center justify-between"
-                    onClick={() => setIsCreateModalOpen(true)}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      Novo Agente de IA
-                    </span>
-                    <ChevronRight className="h-4 w-4 opacity-70" />
-                  </Button>
-
-                  <Link href="/workflows" passHref legacyBehavior>
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      className="w-full flex items-center justify-between"
-                    >
-                      <span className="flex items-center gap-2">
-                        <GitBranch className="h-4 w-4 text-success" />
-                        Visual Workflow Canvas
-                      </span>
-                      <ChevronRight className="h-4 w-4 opacity-70" />
-                    </Button>
-                  </Link>
-
-                  <Link href="/tools" passHref legacyBehavior>
-                    <Button
-                      variant="outline"
-                      size="md"
-                      className="w-full flex items-center justify-between border-border"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Wrench className="h-4 w-4 text-primary" />
-                        Gerenciador de Ferramentas
-                      </span>
-                      <ChevronRight className="h-4 w-4 opacity-70" />
-                    </Button>
-                  </Link>
-                </Card>
-              </div>
+              {/* Quick AI Gateway State Card */}
+              <Card className="p-4 bg-violet-500/5 border border-violet-500/10 text-left">
+                <span className="text-[10px] text-violet-400 font-bold uppercase tracking-wider block">AI COGNITIVE GATEWAY</span>
+                <p className="text-text-primary text-xs font-semibold mt-1">Default Provider: <span className="text-primary font-bold uppercase">{activeProviderId}</span></p>
+                <p className="text-[10px] text-text-muted mt-1 leading-normal">Todas as inferências corporativas estão sendo roteadas de forma segura e auditável.</p>
+              </Card>
             </div>
           </div>
         </div>
-
-        {/* Creation Modal */}
-        <CreateAgentModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSubmit={handleCreateAgent}
-        />
       </WorkspaceLayout>
     </RouteProtection>
   );
