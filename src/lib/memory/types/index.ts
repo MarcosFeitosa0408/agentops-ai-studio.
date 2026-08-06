@@ -22,6 +22,7 @@ export interface MemoryItem {
   lastAccessedAt?: string;
   accessCount: number;
   type: 'short-term' | 'long-term';
+  organizationId?: string;
 }
 
 export interface MemorySearchResult {

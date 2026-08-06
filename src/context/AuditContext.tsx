@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AuditLogEntry } from '../lib/audit/types';
 import { AuditService } from '../lib/audit/auditService';
 import { useAuth } from './AuthContext';
+import { OrganizationIsolation } from '@/organizations/OrganizationIsolation';
 
 interface AuditContextType {
   auditLogs: AuditLogEntry[];
@@ -93,8 +94,16 @@ export function AuditProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('s8_audit_logs');
   };
 
+  const exposedAuditLogs = auditLogs.filter((log) => {
+    try {
+      return OrganizationIsolation.isUserAllowed(log.userId);
+    } catch {
+      return true;
+    }
+  });
+
   return (
-    <AuditContext.Provider value={{ auditLogs, logAction, clearLogs }}>
+    <AuditContext.Provider value={{ auditLogs: exposedAuditLogs, logAction, clearLogs }}>
       {children}
     </AuditContext.Provider>
   );

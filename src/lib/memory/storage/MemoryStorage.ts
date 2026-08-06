@@ -1,4 +1,5 @@
 import { MemoryItem, MemoryScope, MemoryCategory, MemoryStatistics, MemorySearchResult } from '../types';
+import { OrganizationManager } from '@/organizations/OrganizationManager';
 
 const STORAGE_KEY = 'agentops_memory_store';
 
@@ -67,6 +68,7 @@ const INITIAL_MOCK_MEMORIES: MemoryItem[] = [
 
 export class MemoryStorage {
   private static instance: MemoryStorage;
+  private inMemoryItems: MemoryItem[] | null = null;
 
   private constructor() {
     this.ensureInitialized();
@@ -94,9 +96,12 @@ export class MemoryStorage {
     }
   }
 
-  private getItems(): MemoryItem[] {
+  private getItemsRaw(): MemoryItem[] {
     if (!this.isBrowser()) {
-      return INITIAL_MOCK_MEMORIES;
+      if (!this.inMemoryItems) {
+        this.inMemoryItems = JSON.parse(JSON.stringify(INITIAL_MOCK_MEMORIES));
+      }
+      return this.inMemoryItems!;
     }
     try {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -107,8 +112,25 @@ export class MemoryStorage {
     }
   }
 
+  private getItems(): MemoryItem[] {
+    const raw = this.getItemsRaw();
+    const withOrg = raw.map((item: MemoryItem) => {
+      if (!item.organizationId) item.organizationId = 'org-default';
+      return item;
+    });
+    try {
+      const activeOrgId = OrganizationManager.getInstance().getActiveOrgId();
+      return withOrg.filter((item) => item.organizationId === activeOrgId);
+    } catch {
+      return withOrg;
+    }
+  }
+
   private saveItems(items: MemoryItem[]): void {
-    if (!this.isBrowser()) return;
+    if (!this.isBrowser()) {
+      this.inMemoryItems = items;
+      return;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     } catch (e) {
@@ -117,14 +139,21 @@ export class MemoryStorage {
   }
 
   public save(item: Omit<MemoryItem, 'id' | 'createdAt' | 'updatedAt' | 'accessCount'>): MemoryItem {
-    const items = this.getItems();
+    const items = this.getItemsRaw();
     const timestamp = new Date().toISOString();
+    let activeOrgId = 'org-default';
+    try {
+      activeOrgId = OrganizationManager.getInstance().getActiveOrgId();
+    } catch {
+      // ignore
+    }
     const newItem: MemoryItem = {
       ...item,
       id: `mem-${Date.now()}`,
       createdAt: timestamp,
       updatedAt: timestamp,
       accessCount: 0,
+      organizationId: activeOrgId,
     };
     items.unshift(newItem);
     this.saveItems(items);
@@ -132,7 +161,7 @@ export class MemoryStorage {
   }
 
   public update(id: string, updates: Partial<MemoryItem>): MemoryItem {
-    const items = this.getItems();
+    const items = this.getItemsRaw();
     let updatedItem: MemoryItem | null = null;
 
     const updatedItems = items.map((item) => {
@@ -156,7 +185,7 @@ export class MemoryStorage {
   }
 
   public delete(id: string): void {
-    const items = this.getItems();
+    const items = this.getItemsRaw();
     const filtered = items.filter((item) => item.id !== id);
     this.saveItems(filtered);
   }
