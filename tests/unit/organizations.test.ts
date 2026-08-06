@@ -328,10 +328,13 @@ describe('Enterprise Organizations & Multi-Tenant Unit Tests', () => {
         id: 'doc-default',
         name: 'default.pdf',
         type: 'PDF',
-        sizeBytes: 100,
+        size: 100,
+        content: '',
+        chunksCount: 1,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         status: 'indexed',
-        chunkCount: 1,
+        metadata: {},
       }, []);
 
       const defaultMems = storage.list();
