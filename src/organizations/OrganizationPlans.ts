@@ -1,12 +1,16 @@
-export type OrganizationPlanType = 'Starter' | 'Pro' | 'Enterprise';
+export type OrganizationPlanType = 'Starter' | 'Pro' | 'Professional' | 'Enterprise' | 'Custom';
 
 export interface OrganizationPlanLimits {
   maxUsers: number;
   maxWorkers: number;
   maxPlugins: number;
   maxWorkflows: number;
-  maxMemoryUsageBytes: number;
+  maxMemory: number;
+  maxMemoryUsageBytes: number; // Legacy alias of maxMemory for Sprint 11 compatibility
+  maxStorage: number;
   maxDashboards: number;
+  maxApiRequests: number;
+  maxExecutions: number;
 }
 
 export const PLAN_LIMITS: Record<OrganizationPlanType, OrganizationPlanLimits> = {
@@ -15,24 +19,60 @@ export const PLAN_LIMITS: Record<OrganizationPlanType, OrganizationPlanLimits> =
     maxWorkers: 3,
     maxPlugins: 2,
     maxWorkflows: 3,
-    maxMemoryUsageBytes: 10 * 1024 * 1024, // 10MB
+    maxMemory: 10 * 1024 * 1024, // 10MB
+    maxMemoryUsageBytes: 10 * 1024 * 1024,
+    maxStorage: 50 * 1024 * 1024, // 50MB
     maxDashboards: 1,
+    maxApiRequests: 1000,
+    maxExecutions: 500,
   },
   Pro: {
-    maxUsers: 20,
+    maxUsers: 25,
     maxWorkers: 15,
     maxPlugins: 8,
     maxWorkflows: 10,
-    maxMemoryUsageBytes: 100 * 1024 * 1024, // 100MB
+    maxMemory: 100 * 1024 * 1024, // 100MB
+    maxMemoryUsageBytes: 100 * 1024 * 1024,
+    maxStorage: 500 * 1024 * 1024, // 500MB
     maxDashboards: 5,
+    maxApiRequests: 10000,
+    maxExecutions: 5000,
+  },
+  Professional: {
+    maxUsers: 25,
+    maxWorkers: 15,
+    maxPlugins: 8,
+    maxWorkflows: 10,
+    maxMemory: 100 * 1024 * 1024, // 100MB
+    maxMemoryUsageBytes: 100 * 1024 * 1024,
+    maxStorage: 500 * 1024 * 1024, // 500MB
+    maxDashboards: 5,
+    maxApiRequests: 10000,
+    maxExecutions: 5000,
   },
   Enterprise: {
     maxUsers: 500,
     maxWorkers: 100,
     maxPlugins: 50,
     maxWorkflows: 100,
-    maxMemoryUsageBytes: 5 * 1024 * 1024 * 1024, // 5GB
+    maxMemory: 5 * 1024 * 1024 * 1024, // 5GB
+    maxMemoryUsageBytes: 5 * 1024 * 1024 * 1024,
+    maxStorage: 50 * 1024 * 1024 * 1024, // 50GB
     maxDashboards: 20,
+    maxApiRequests: 500000,
+    maxExecutions: 100000,
+  },
+  Custom: {
+    maxUsers: 1000,
+    maxWorkers: 250,
+    maxPlugins: 100,
+    maxWorkflows: 250,
+    maxMemory: 10 * 1024 * 1024 * 1024, // 10GB
+    maxMemoryUsageBytes: 10 * 1024 * 1024 * 1024,
+    maxStorage: 100 * 1024 * 1024 * 1024, // 100GB
+    maxDashboards: 50,
+    maxApiRequests: 1000000,
+    maxExecutions: 250000,
   },
 };
 

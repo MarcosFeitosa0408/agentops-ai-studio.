@@ -30,14 +30,9 @@ export class OrganizationMemberManager {
 
     const currentTotal = activeMembers.length + pendingInvites.length;
 
-    if (org.plan === 'Starter') {
-      return currentTotal < 5;
-    } else if (org.plan === 'Pro') {
-      return currentTotal < 25;
-    } else if (org.plan === 'Enterprise') {
-      return true;
-    }
-    return false;
+    // Dynamically check against the plan's maxUsers limit instead of hardcoding plan names
+    const maxUsers = org.limits?.maxUsers ?? 5;
+    return currentTotal < maxUsers;
   }
 
   // Invite member
@@ -111,7 +106,17 @@ export class OrganizationMemberManager {
       lastAccess: new Date().toISOString(),
     };
 
-    return OrganizationMemberRepository.createMember(newMember);
+    const created = OrganizationMemberRepository.createMember(newMember);
+
+    // Synchronize newly added user ID with legacy users array in OrganizationRepository
+    const org = OrganizationRepository.find(invitation.organizationId);
+    if (org && !org.users.includes(userId)) {
+      OrganizationRepository.update(invitation.organizationId, {
+        users: [...org.users, userId],
+      });
+    }
+
+    return created;
   }
 
   // Create member directly (Admin/Owner bypass for quick testing)
@@ -146,7 +151,17 @@ export class OrganizationMemberManager {
       lastAccess: new Date().toISOString(),
     };
 
-    return OrganizationMemberRepository.createMember(newMember);
+    const created = OrganizationMemberRepository.createMember(newMember);
+
+    // Synchronize newly added user ID with legacy users array in OrganizationRepository
+    const org = OrganizationRepository.find(orgId);
+    if (org && !org.users.includes(userId)) {
+      OrganizationRepository.update(orgId, {
+        users: [...org.users, userId],
+      });
+    }
+
+    return created;
   }
 
   // Change member role

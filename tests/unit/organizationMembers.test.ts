@@ -107,8 +107,12 @@ describe('Organization Members & Multi-Tenant Membership Unit Tests', () => {
           maxWorkers: 5,
           maxPlugins: 5,
           maxWorkflows: 5,
+          maxMemory: 1024,
           maxMemoryUsageBytes: 1024,
+          maxStorage: 1024,
           maxDashboards: 1,
+          maxApiRequests: 100,
+          maxExecutions: 100,
         },
       });
 

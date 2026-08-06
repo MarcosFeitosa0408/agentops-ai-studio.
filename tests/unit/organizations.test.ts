@@ -64,8 +64,12 @@ describe('Enterprise Organizations & Multi-Tenant Unit Tests', () => {
           maxWorkers: 3,
           maxPlugins: 2,
           maxWorkflows: 3,
+          maxMemory: 5 * 1024 * 1024,
           maxMemoryUsageBytes: 5 * 1024 * 1024,
+          maxStorage: 10 * 1024 * 1024,
           maxDashboards: 1,
+          maxApiRequests: 100,
+          maxExecutions: 100,
         },
       });
 
@@ -124,8 +128,12 @@ describe('Enterprise Organizations & Multi-Tenant Unit Tests', () => {
           maxWorkers: 2,
           maxPlugins: 2,
           maxWorkflows: 2,
+          maxMemory: 1024,
           maxMemoryUsageBytes: 1024,
+          maxStorage: 1024,
           maxDashboards: 1,
+          maxApiRequests: 100,
+          maxExecutions: 100,
         },
       });
 
