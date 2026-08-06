@@ -1,6 +1,8 @@
 import { Workflow, WorkflowExecution } from '../types';
 import { WorkflowRunner } from '../runner/WorkflowRunner';
 import { WorkflowLogService } from '../services/WorkflowLogService';
+import { OrganizationIsolation } from '@/organizations/OrganizationIsolation';
+import { OrganizationManager } from '@/organizations/OrganizationManager';
 
 export class WorkflowEngine {
   private static instance: WorkflowEngine;
@@ -137,11 +139,22 @@ export class WorkflowEngine {
 
   public list(): Workflow[] {
     this.hydrate();
-    return this.workflows;
+    try {
+      return this.workflows.filter((w) => OrganizationIsolation.isWorkflowAllowed(w.id));
+    } catch {
+      return this.workflows;
+    }
   }
 
   public find(id: string): Workflow | undefined {
     this.hydrate();
+    try {
+      if (!OrganizationIsolation.isWorkflowAllowed(id)) {
+        return undefined;
+      }
+    } catch {
+      // ignore
+    }
     return this.workflows.find((w) => w.id === id);
   }
 
@@ -157,6 +170,13 @@ export class WorkflowEngine {
 
     this.workflows.unshift(newWorkflow);
     this.save();
+
+    try {
+      OrganizationManager.getInstance().associateWorkflow(newWorkflow.id);
+    } catch (e) {
+      console.error('Error associating custom workflow with organization:', e);
+    }
+
     return newWorkflow;
   }
 
@@ -225,7 +245,11 @@ export class WorkflowEngine {
 
   public getExecutions(): WorkflowExecution[] {
     this.hydrate();
-    return this.executions;
+    try {
+      return this.executions.filter((e) => OrganizationIsolation.isWorkflowAllowed(e.workflowId));
+    } catch {
+      return this.executions;
+    }
   }
 
   public getExecutionsByWorkflow(workflowId: string): WorkflowExecution[] {

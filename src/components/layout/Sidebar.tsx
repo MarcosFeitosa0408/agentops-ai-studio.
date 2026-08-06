@@ -15,6 +15,7 @@ import {
   GitBranch,
   Folder,
   ShieldAlert,
+  Building2,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 import { useAuth } from '@/context/AuthContext';
@@ -149,6 +150,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <ShieldAlert className="h-4.5 w-4.5 shrink-0 text-red-500" />
                 <span className="font-semibold text-text-primary">Painel Admin (IT)</span>
+              </a>
+            )}
+            {isAdmin && (
+              <a
+                href="/organizations"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 outline-none select-none text-text-secondary hover:bg-neutral-light hover:text-text-primary"
+              >
+                <Building2 className="h-4.5 w-4.5 shrink-0 text-violet-400" />
+                <span className="font-semibold text-text-primary">Organizações</span>
               </a>
             )}
             <a

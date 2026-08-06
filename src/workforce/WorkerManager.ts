@@ -1,5 +1,7 @@
 import { AgentWorker, AgentWorkerConfig } from './AgentWorker';
 import { WorkerHistoryEntry } from './WorkerHistory';
+import { OrganizationIsolation } from '@/organizations/OrganizationIsolation';
+import { OrganizationManager } from '@/organizations/OrganizationManager';
 
 export const PRESET_WORKERS: AgentWorkerConfig[] = [
   {
@@ -522,7 +524,11 @@ export class WorkerManager {
 
   public list(): AgentWorker[] {
     this.hydrate();
-    return this.workers;
+    try {
+      return this.workers.filter((w) => OrganizationIsolation.isWorkerAllowed(w.id));
+    } catch {
+      return this.workers;
+    }
   }
 
   public getInstalled(): AgentWorker[] {
@@ -535,12 +541,23 @@ export class WorkerManager {
 
   public find(id: string): AgentWorker | undefined {
     this.hydrate();
+    try {
+      if (!OrganizationIsolation.isWorkerAllowed(id)) {
+        return undefined;
+      }
+    } catch {
+      // ignore
+    }
     return this.workers.find((w) => w.id === id);
   }
 
   public getHistory(): WorkerHistoryEntry[] {
     this.hydrate();
-    return this.history;
+    try {
+      return this.history.filter((h) => OrganizationIsolation.isWorkerAllowed(h.workerId));
+    } catch {
+      return this.history;
+    }
   }
 
   public getHistoryByWorker(workerId: string): WorkerHistoryEntry[] {
@@ -561,6 +578,13 @@ export class WorkerManager {
     const newWorker = new AgentWorker(newConfig);
     this.workers.unshift(newWorker);
     this.saveWorkers();
+
+    try {
+      OrganizationManager.getInstance().associateWorker(newWorker.id);
+    } catch (e) {
+      console.error('Error associating custom worker with organization:', e);
+    }
+
     return newWorker;
   }
 

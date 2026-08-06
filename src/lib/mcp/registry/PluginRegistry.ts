@@ -1,5 +1,7 @@
 import { Plugin, PluginManifest } from '@/plugins/types';
 import { getStandardPlugins } from '@/plugins';
+import { OrganizationIsolation } from '@/organizations/OrganizationIsolation';
+import { OrganizationManager } from '@/organizations/OrganizationManager';
 
 /**
  * Standard representation of a loaded, active plugin.
@@ -156,6 +158,13 @@ export class PluginRegistry {
     });
 
     this.saveConfig();
+
+    try {
+      OrganizationManager.getInstance().associatePlugin(manifest.id);
+    } catch {
+      // ignore
+    }
+
     return { success: true };
   }
 
@@ -222,11 +231,23 @@ export class PluginRegistry {
   }
 
   public get(id: string): RegisteredPlugin | undefined {
+    try {
+      if (!OrganizationIsolation.isPluginAllowed(id)) {
+        return undefined;
+      }
+    } catch {
+      // ignore
+    }
     return this.plugins.get(id);
   }
 
   public list(): RegisteredPlugin[] {
-    return Array.from(this.plugins.values());
+    const all = Array.from(this.plugins.values());
+    try {
+      return all.filter((p) => OrganizationIsolation.isPluginAllowed(p.manifest.id));
+    } catch {
+      return all;
+    }
   }
 
   public listInstalled(): RegisteredPlugin[] {

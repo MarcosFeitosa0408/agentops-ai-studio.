@@ -19,6 +19,7 @@ import {
   GitBranch,
   Folder,
   ShieldAlert,
+  Building2,
 } from 'lucide-react';
 import { Agent } from '@/types/agent';
 import { IconButton } from '@/components/ui/IconButton';
@@ -40,7 +41,8 @@ interface WorkspaceSidebarProps {
     | 'workspaces'
     | 'security'
     | 'profile'
-    | 'admin';
+    | 'admin'
+    | 'organizations';
   agents?: Agent[];
   selectedAgentId?: string;
   onAgentSelect?: (agent: Agent) => void;
@@ -124,6 +126,13 @@ export const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       icon: ShieldAlert,
       href: '/admin',
       active: activePath === 'admin',
+      visible: isAdmin,
+    },
+    {
+      label: 'Organizações',
+      icon: Building2,
+      href: '/organizations',
+      active: activePath === 'organizations',
       visible: isAdmin,
     },
     {

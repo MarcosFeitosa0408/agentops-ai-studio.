@@ -19,7 +19,8 @@ interface WorkspaceLayoutProps {
     | 'workspaces'
     | 'security'
     | 'profile'
-    | 'admin';
+    | 'admin'
+    | 'organizations';
   title: string;
   breadcrumbs?: { label: string; href?: string }[];
   agents?: Agent[];
